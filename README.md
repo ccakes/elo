@@ -1,8 +1,11 @@
 # Elo
 
-Elo is a notepad-style calculator for natural math expressions. Type plain-English arithmetic, unit conversions, percentages, dates, and more — results appear live as you type.
+Elo is a notepad-style calculator for natural math expressions. Type plain-English arithmetic, unit conversions, percentages, dates, and more — results appear live as you type. This is a re-implementation of [Numi](https://numi.app/) - for a long time I really wanted Numi on Linux but and made do with the CLI app but with the advent of Claude, I figured I could probably vibe code an implementation. Turns out yeah, you can!
 
-Uses [Tauri](https://tauri.app/) for the cross-platform desktop GUI.
+> [!NOTE]
+> **If you like this, please go buy Numi!**
+>
+> Support the original artist behind this, it's a great app and if you're on Mac on Windows, you don't need this. Numi is better and it's shareware, so if you're financially constrained then you can still use the original!
 
 ## Features
 
