@@ -137,38 +137,84 @@ impl<'a> Lexer<'a> {
             let ch = self.chars[self.pos];
 
             let token = match ch {
-                '0' if self.pos + 1 < self.chars.len() => {
-                    match self.chars[self.pos + 1] {
-                        'x' | 'X' => self.lex_hex(),
-                        'b' | 'B' => self.lex_bin(),
-                        'o' | 'O' => self.lex_oct(),
-                        _ => self.lex_number(),
-                    }
-                }
-                '0'..='9' | '.' if ch == '.' && self.pos + 1 < self.chars.len() && self.chars[self.pos + 1].is_ascii_digit() => {
+                '0' if self.pos + 1 < self.chars.len() => match self.chars[self.pos + 1] {
+                    'x' | 'X' => self.lex_hex(),
+                    'b' | 'B' => self.lex_bin(),
+                    'o' | 'O' => self.lex_oct(),
+                    _ => self.lex_number(),
+                },
+                '0'..='9' | '.'
+                    if ch == '.'
+                        && self.pos + 1 < self.chars.len()
+                        && self.chars[self.pos + 1].is_ascii_digit() =>
+                {
                     self.lex_number()
                 }
                 '0'..='9' => self.lex_number(),
-                '+' => { self.pos += 1; Token::Plus }
-                '-' => { self.pos += 1; Token::Minus }
-                '*' => { self.pos += 1; Token::Star }
-                '/' => { self.pos += 1; Token::Slash }
-                '^' => { self.pos += 1; Token::Caret }
-                '%' => { self.pos += 1; Token::Percent }
-                '&' => { self.pos += 1; Token::Ampersand }
-                '|' => { self.pos += 1; Token::Pipe }
+                '+' => {
+                    self.pos += 1;
+                    Token::Plus
+                }
+                '-' => {
+                    self.pos += 1;
+                    Token::Minus
+                }
+                '*' => {
+                    self.pos += 1;
+                    Token::Star
+                }
+                '/' => {
+                    self.pos += 1;
+                    Token::Slash
+                }
+                '^' => {
+                    self.pos += 1;
+                    Token::Caret
+                }
+                '%' => {
+                    self.pos += 1;
+                    Token::Percent
+                }
+                '&' => {
+                    self.pos += 1;
+                    Token::Ampersand
+                }
+                '|' => {
+                    self.pos += 1;
+                    Token::Pipe
+                }
                 '<' if self.pos + 1 < self.chars.len() && self.chars[self.pos + 1] == '<' => {
-                    self.pos += 2; Token::LShift
+                    self.pos += 2;
+                    Token::LShift
                 }
                 '>' if self.pos + 1 < self.chars.len() && self.chars[self.pos + 1] == '>' => {
-                    self.pos += 2; Token::RShift
+                    self.pos += 2;
+                    Token::RShift
                 }
-                '=' => { self.pos += 1; Token::Equals }
-                '(' => { self.pos += 1; Token::LParen }
-                ')' => { self.pos += 1; Token::RParen }
-                ',' => { self.pos += 1; Token::Comma }
-                ':' => { self.pos += 1; Token::Colon }
-                '#' => { self.pos += 1; Token::Hash }
+                '=' => {
+                    self.pos += 1;
+                    Token::Equals
+                }
+                '(' => {
+                    self.pos += 1;
+                    Token::LParen
+                }
+                ')' => {
+                    self.pos += 1;
+                    Token::RParen
+                }
+                ',' => {
+                    self.pos += 1;
+                    Token::Comma
+                }
+                ':' => {
+                    self.pos += 1;
+                    Token::Colon
+                }
+                '#' => {
+                    self.pos += 1;
+                    Token::Hash
+                }
                 '"' => self.lex_quoted_string(),
                 '°' => {
                     // °C or °F
@@ -185,12 +231,19 @@ impl<'a> Lexer<'a> {
                         Token::Ident("°".to_string())
                     }
                 }
-                '″' => { self.pos += 1; Token::Ident("″".to_string()) }
-                '₹' | '€' | '£' | '¥' | '₩' | '₿' | '₺' | '₪' | '₱' | '₽' | '฿' => {
+                '″' => {
+                    self.pos += 1;
+                    Token::Ident("″".to_string())
+                }
+                '₹' | '€' | '£' | '¥' | '₩' | '₿' | '₺' | '₪' | '₱' | '₽' | '฿' =>
+                {
                     self.pos += 1;
                     Token::Ident(ch.to_string())
                 }
-                '$' => { self.pos += 1; Token::Ident("$".to_string()) }
+                '$' => {
+                    self.pos += 1;
+                    Token::Ident("$".to_string())
+                }
                 _ if ch.is_alphabetic() || ch == '_' => self.lex_identifier(),
                 _ => {
                     self.pos += 1;
@@ -234,7 +287,9 @@ impl<'a> Lexer<'a> {
                 // Scientific notation
                 has_e = true;
                 self.pos += 1;
-                if self.pos < self.chars.len() && (self.chars[self.pos] == '+' || self.chars[self.pos] == '-') {
+                if self.pos < self.chars.len()
+                    && (self.chars[self.pos] == '+' || self.chars[self.pos] == '-')
+                {
                     self.pos += 1;
                 }
             } else if ch == ',' {
@@ -249,7 +304,8 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        let text: String = self.chars[start..self.pos].iter()
+        let text: String = self.chars[start..self.pos]
+            .iter()
             .filter(|c| **c != ',')
             .collect();
 
@@ -277,7 +333,9 @@ impl<'a> Lexer<'a> {
     fn lex_bin(&mut self) -> Token {
         self.pos += 2; // skip 0b
         let start = self.pos;
-        while self.pos < self.chars.len() && (self.chars[self.pos] == '0' || self.chars[self.pos] == '1') {
+        while self.pos < self.chars.len()
+            && (self.chars[self.pos] == '0' || self.chars[self.pos] == '1')
+        {
             self.pos += 1;
         }
         let text: String = self.chars[start..self.pos].iter().collect();
@@ -288,7 +346,10 @@ impl<'a> Lexer<'a> {
     fn lex_oct(&mut self) -> Token {
         self.pos += 2; // skip 0o
         let start = self.pos;
-        while self.pos < self.chars.len() && self.chars[self.pos] >= '0' && self.chars[self.pos] <= '7' {
+        while self.pos < self.chars.len()
+            && self.chars[self.pos] >= '0'
+            && self.chars[self.pos] <= '7'
+        {
             self.pos += 1;
         }
         let text: String = self.chars[start..self.pos].iter().collect();
@@ -339,7 +400,11 @@ mod tests {
     use super::*;
 
     fn tokens(input: &str) -> Vec<Token> {
-        Lexer::new(input).tokenize().into_iter().map(|t| t.token).collect()
+        Lexer::new(input)
+            .tokenize()
+            .into_iter()
+            .map(|t| t.token)
+            .collect()
     }
 
     #[test]
@@ -370,13 +435,16 @@ mod tests {
     #[test]
     fn test_arithmetic() {
         let toks = tokens("2 + 3 * 4");
-        assert_eq!(toks, vec![
-            Token::Number(2.0),
-            Token::Plus,
-            Token::Number(3.0),
-            Token::Star,
-            Token::Number(4.0),
-        ]);
+        assert_eq!(
+            toks,
+            vec![
+                Token::Number(2.0),
+                Token::Plus,
+                Token::Number(3.0),
+                Token::Star,
+                Token::Number(4.0),
+            ]
+        );
     }
 
     #[test]
@@ -399,25 +467,31 @@ mod tests {
     #[test]
     fn test_label_expr() {
         let toks = tokens("Total: 5 + 5");
-        assert_eq!(toks, vec![
-            Token::Ident("Total".to_string()),
-            Token::Colon,
-            Token::Number(5.0),
-            Token::Plus,
-            Token::Number(5.0),
-        ]);
+        assert_eq!(
+            toks,
+            vec![
+                Token::Ident("Total".to_string()),
+                Token::Colon,
+                Token::Number(5.0),
+                Token::Plus,
+                Token::Number(5.0),
+            ]
+        );
     }
 
     #[test]
     fn test_parentheses() {
         let toks = tokens("(2 + 3)");
-        assert_eq!(toks, vec![
-            Token::LParen,
-            Token::Number(2.0),
-            Token::Plus,
-            Token::Number(3.0),
-            Token::RParen,
-        ]);
+        assert_eq!(
+            toks,
+            vec![
+                Token::LParen,
+                Token::Number(2.0),
+                Token::Plus,
+                Token::Number(3.0),
+                Token::RParen,
+            ]
+        );
     }
 
     #[test]
@@ -438,26 +512,29 @@ mod tests {
     #[test]
     fn test_bitwise() {
         let toks = tokens("5 & 3 | 1 << 2 >> 1");
-        assert_eq!(toks, vec![
-            Token::Number(5.0),
-            Token::Ampersand,
-            Token::Number(3.0),
-            Token::Pipe,
-            Token::Number(1.0),
-            Token::LShift,
-            Token::Number(2.0),
-            Token::RShift,
-            Token::Number(1.0),
-        ]);
+        assert_eq!(
+            toks,
+            vec![
+                Token::Number(5.0),
+                Token::Ampersand,
+                Token::Number(3.0),
+                Token::Pipe,
+                Token::Number(1.0),
+                Token::LShift,
+                Token::Number(2.0),
+                Token::RShift,
+                Token::Number(1.0),
+            ]
+        );
     }
 
     #[test]
     fn test_currency_symbol() {
         let toks = tokens("€ 100");
-        assert_eq!(toks, vec![
-            Token::Ident("€".to_string()),
-            Token::Number(100.0),
-        ]);
+        assert_eq!(
+            toks,
+            vec![Token::Ident("€".to_string()), Token::Number(100.0),]
+        );
     }
 
     #[test]

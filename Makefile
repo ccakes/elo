@@ -9,14 +9,15 @@ build-cli:
 
 build-macos:
 	mkdir -p build
-	cd elo-tauri && pnpm install && cargo tauri build --bundles app
+	cd elo-tauri && pnpm install && cd .. && cargo tauri build --bundles app
 	cp -r target/release/bundle/macos/Elo.app build/
 
 build-linux:
 	mkdir -p build
-	cd elo-tauri && pnpm install && cargo tauri build --bundles deb,appimage
-	cp -r target/release/bundle/deb build/
-	cp -r target/release/bundle/appimage build/
+	cd elo-tauri && pnpm install && cd .. && cargo tauri build --bundles deb,rpm
+	cp -r target/release/bundle/deb/*.deb build/
+	cp -r target/release/bundle/rpm/*.rpm build/
+	#cp -r target/release/bundle/appimage build/
 
 test:
 	cargo test --workspace

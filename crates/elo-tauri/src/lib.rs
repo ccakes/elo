@@ -1,7 +1,7 @@
-use std::sync::Mutex;
-use serde::{Deserialize, Serialize};
-use tauri::State;
 use elo_core::Session;
+use serde::{Deserialize, Serialize};
+use std::sync::Mutex;
+use tauri::State;
 
 /// Shared session state managed by Tauri
 struct AppState {

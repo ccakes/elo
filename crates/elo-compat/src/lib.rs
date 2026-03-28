@@ -2,11 +2,7 @@ use std::process::Command;
 
 /// Run an expression through numi-cli and return the result
 pub fn numi_eval(expr: &str) -> Option<String> {
-    let output = Command::new("numi-cli")
-        .arg("--")
-        .arg(expr)
-        .output()
-        .ok()?;
+    let output = Command::new("numi-cli").arg("--").arg(expr).output().ok()?;
 
     if output.status.success() {
         let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -95,25 +91,29 @@ fn split_number_suffix(s: &str) -> (String, String) {
     let s = s.trim();
 
     // Handle hex/bin/oct format
-    if s.starts_with("0x") || s.starts_with("0b") || s.starts_with("0o") {
-        if let Some(val) = parse_prefixed_int(s) {
-            return (val.to_string(), String::new());
-        }
+    if (s.starts_with("0x") || s.starts_with("0b") || s.starts_with("0o"))
+        && let Some(val) = parse_prefixed_int(s)
+    {
+        return (val.to_string(), String::new());
     }
 
     // Handle currency prefix: "€ 0.86" -> ("0.86", "€")
-    if let Some(first_char) = s.chars().next() {
-        if !first_char.is_ascii_digit() && first_char != '-' && first_char != '.' {
-            let rest = s.trim_start_matches(|c: char| !c.is_ascii_digit() && c != '-' && c != '.').trim();
-            let prefix = s[..s.len() - rest.len()].trim();
-            let (num, suffix) = split_trailing_suffix(rest);
-            let full_suffix = if suffix.is_empty() {
-                prefix.to_string()
-            } else {
-                format!("{} {}", prefix, suffix)
-            };
-            return (num, full_suffix);
-        }
+    if let Some(first_char) = s.chars().next()
+        && !first_char.is_ascii_digit()
+        && first_char != '-'
+        && first_char != '.'
+    {
+        let rest = s
+            .trim_start_matches(|c: char| !c.is_ascii_digit() && c != '-' && c != '.')
+            .trim();
+        let prefix = s[..s.len() - rest.len()].trim();
+        let (num, suffix) = split_trailing_suffix(rest);
+        let full_suffix = if suffix.is_empty() {
+            prefix.to_string()
+        } else {
+            format!("{} {}", prefix, suffix)
+        };
+        return (num, full_suffix);
     }
 
     split_trailing_suffix(s)
@@ -210,11 +210,23 @@ mod tests {
     #[ignore]
     fn test_arithmetic_compat() {
         assert_compat(&[
-            "2 + 2", "3 * 4", "10 - 3", "12 / 4", "2 ^ 10", "10 mod 3",
-            "2 + 3 * 4", "(2 + 3) * 4",
-            "10 plus 5", "10 minus 3", "3 times 4",
-            "12 divide by 3", "10 multiplied by 5", "10 without 3",
-            "-5 + 3", "0 + 0", "1000000 * 1000000",
+            "2 + 2",
+            "3 * 4",
+            "10 - 3",
+            "12 / 4",
+            "2 ^ 10",
+            "10 mod 3",
+            "2 + 3 * 4",
+            "(2 + 3) * 4",
+            "10 plus 5",
+            "10 minus 3",
+            "3 times 4",
+            "12 divide by 3",
+            "10 multiplied by 5",
+            "10 without 3",
+            "-5 + 3",
+            "0 + 0",
+            "1000000 * 1000000",
         ]);
     }
 
@@ -222,37 +234,43 @@ mod tests {
     #[ignore]
     fn test_function_compat() {
         assert_compat(&[
-            "sqrt(16)", "sqrt(2)", "cbrt(27)", "cbrt(8)",
-            "abs(-5)", "abs(5)",
-            "round(3.7)", "round(3.2)", "ceil(3.2)", "floor(3.8)",
-            "sin(0)", "cos(0)", "ln(e)",
+            "sqrt(16)",
+            "sqrt(2)",
+            "cbrt(27)",
+            "cbrt(8)",
+            "abs(-5)",
+            "abs(5)",
+            "round(3.7)",
+            "round(3.2)",
+            "ceil(3.2)",
+            "floor(3.8)",
+            "sin(0)",
+            "cos(0)",
+            "ln(e)",
         ]);
     }
 
     #[test]
     #[ignore]
     fn test_scale_compat() {
-        assert_compat(&[
-            "1k", "2.5M", "1 billion",
-            "3k", "10M", "2 billion",
-        ]);
+        assert_compat(&["1k", "2.5M", "1 billion", "3k", "10M", "2 billion"]);
     }
 
     #[test]
     #[ignore]
     fn test_bitwise_compat() {
-        assert_compat(&[
-            "5 & 3", "5 | 3", "5 xor 3",
-            "1 << 3", "8 >> 2", "255 & 15",
-        ]);
+        assert_compat(&["5 & 3", "5 | 3", "5 xor 3", "1 << 3", "8 >> 2", "255 & 15"]);
     }
 
     #[test]
     #[ignore]
     fn test_format_conversion_compat() {
         assert_compat(&[
-            "10 as hex", "10 as binary", "10 as octal",
-            "255 as hex", "100 in sci",
+            "10 as hex",
+            "10 as binary",
+            "10 as octal",
+            "255 as hex",
+            "100 in sci",
         ]);
     }
 
@@ -260,8 +278,11 @@ mod tests {
     #[ignore]
     fn test_percentage_compat() {
         assert_compat(&[
-            "50% of 200", "10% on 100", "10% off 100",
-            "100 - 30%", "5% of what is 10",
+            "50% of 200",
+            "10% on 100",
+            "10% off 100",
+            "100 - 30%",
+            "5% of what is 10",
             "100 + 10%",
         ]);
     }
@@ -295,38 +316,25 @@ mod tests {
     #[test]
     #[ignore]
     fn test_unit_sequence_compat() {
-        assert_compat(&[
-            "1 meter 20 cm",
-            "5 feet 3 inches",
-        ]);
+        assert_compat(&["1 meter 20 cm", "5 feet 3 inches"]);
     }
 
     #[test]
     #[ignore]
     fn test_cross_unit_arithmetic_compat() {
-        assert_compat(&[
-            "5 meter + 200 cm",
-            "3 kg + 500 g",
-        ]);
+        assert_compat(&["5 meter + 200 cm", "3 kg + 500 g"]);
     }
 
     #[test]
     #[ignore]
     fn test_date_keyword_compat() {
-        assert_compat(&[
-            "today",
-            "tomorrow",
-            "yesterday",
-        ]);
+        assert_compat(&["today", "tomorrow", "yesterday"]);
     }
 
     #[test]
     #[ignore]
     fn test_date_arithmetic_compat() {
-        assert_compat(&[
-            "today + 1 week",
-            "tomorrow + 2 days",
-        ]);
+        assert_compat(&["today + 1 week", "tomorrow + 2 days"]);
     }
 
     #[test]

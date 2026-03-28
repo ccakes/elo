@@ -1,5 +1,5 @@
-use proptest::prelude::*;
 use elo_core::Session;
+use proptest::prelude::*;
 
 /// Strategy to generate arbitrary expression strings
 fn arb_expression() -> impl Strategy<Value = String> {
@@ -141,7 +141,10 @@ fn no_panic_nested_parens() {
 #[test]
 fn no_panic_long_expression() {
     let mut session = Session::new();
-    let input = (0..200).map(|i| format!("{}", i)).collect::<Vec<_>>().join(" + ");
+    let input = (0..200)
+        .map(|i| format!("{}", i))
+        .collect::<Vec<_>>()
+        .join(" + ");
     let result = session.eval_line(&input);
     // 0+1+2+...+199 = 199*200/2 = 19900
     assert_eq!(result.value.as_number(), Some(19900.0));
@@ -167,7 +170,12 @@ fn no_panic_various_conversions() {
     let mut session = Session::new();
     for case in &cases {
         let result = session.eval_line(case);
-        assert!(!result.value.is_error(), "error for '{}': {}", case, result.display);
+        assert!(
+            !result.value.is_error(),
+            "error for '{}': {}",
+            case,
+            result.display
+        );
     }
 }
 
@@ -175,13 +183,28 @@ fn no_panic_various_conversions() {
 #[test]
 fn no_panic_tricky_inputs() {
     let cases = [
-        "1 +", "* 5", "/ 0", "+ +", "- -", "(((",
-        ")))","", "   ", "0xFF & 0x0F",
-        "pi * * 2", "sqrt(sqrt(sqrt(2)))", "1e999",
-        "now + now", "today - today",
-        "abc def ghi", "1 meter 2 meter 3 meter",
-        "100% of 0", "0% of what is 0",
-        "sum", "prev", "avg", // no previous values
+        "1 +",
+        "* 5",
+        "/ 0",
+        "+ +",
+        "- -",
+        "(((",
+        ")))",
+        "",
+        "   ",
+        "0xFF & 0x0F",
+        "pi * * 2",
+        "sqrt(sqrt(sqrt(2)))",
+        "1e999",
+        "now + now",
+        "today - today",
+        "abc def ghi",
+        "1 meter 2 meter 3 meter",
+        "100% of 0",
+        "0% of what is 0",
+        "sum",
+        "prev",
+        "avg", // no previous values
     ];
     let mut session = Session::new();
     for case in &cases {

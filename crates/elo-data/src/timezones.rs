@@ -42,7 +42,6 @@ pub static TIMEZONE_ALIASES: &[(&str, &str)] = &[
     ("SAST", "Africa/Johannesburg"),
     ("WAT", "Africa/Lagos"),
     ("EAT", "Africa/Nairobi"),
-
     // City names
     ("New York", "America/New_York"),
     ("Los Angeles", "America/Los_Angeles"),

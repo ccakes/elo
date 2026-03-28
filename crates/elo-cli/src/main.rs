@@ -1,5 +1,5 @@
-use std::io::{self, BufRead};
 use elo_core::Session;
+use std::io::{self, BufRead};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();

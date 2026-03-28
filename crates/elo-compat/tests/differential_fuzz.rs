@@ -1,14 +1,14 @@
 use std::process::Command;
 
 fn numi_eval(expr: &str) -> Option<String> {
-    let output = Command::new("numi-cli")
-        .arg("--")
-        .arg(expr)
-        .output()
-        .ok()?;
+    let output = Command::new("numi-cli").arg("--").arg(expr).output().ok()?;
     if output.status.success() {
         let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if result == "error" { None } else { Some(result) }
+        if result == "error" {
+            None
+        } else {
+            Some(result)
+        }
     } else {
         None
     }
@@ -46,7 +46,9 @@ fn semantic_match(numi: &str, elo: &str) -> bool {
 fn normalize_num_str(s: &str) -> String {
     let s = s.trim();
     // Split at first space to separate number from unit
-    let (num_part, suffix) = if let Some(idx) = s.find(|c: char| !c.is_ascii_digit() && c != '.' && c != '-' && c != '+' && c != 'e' && c != 'E') {
+    let (num_part, suffix) = if let Some(idx) = s.find(|c: char| {
+        !c.is_ascii_digit() && c != '.' && c != '-' && c != '+' && c != 'e' && c != 'E'
+    }) {
         (&s[..idx], s[idx..].trim())
     } else {
         (s, "")
@@ -76,7 +78,9 @@ fn try_parse_number(s: &str) -> Option<f64> {
         return Some(n);
     }
     // Try stripping suffix
-    let num_end = s.find(|c: char| !c.is_ascii_digit() && c != '.' && c != '-' && c != '+').unwrap_or(s.len());
+    let num_end = s
+        .find(|c: char| !c.is_ascii_digit() && c != '.' && c != '-' && c != '+')
+        .unwrap_or(s.len());
     s[..num_end].parse().ok()
 }
 
@@ -114,21 +118,33 @@ fn fuzz_category_inner(name: &str, expressions: &[String], strict: bool) {
         };
 
         if !ok {
-            mismatches.push(format!(
-                "  '{}': numi={:?}, elo='{}'",
-                expr, numi, elo,
-            ));
+            mismatches.push(format!("  '{}': numi={:?}, elo='{}'", expr, numi, elo,));
         }
     }
 
     if !mismatches.is_empty() {
-        eprintln!("\n[{}] {} mismatches out of {}:", name, mismatches.len(), expressions.len());
+        eprintln!(
+            "\n[{}] {} mismatches out of {}:",
+            name,
+            mismatches.len(),
+            expressions.len()
+        );
         for m in &mismatches {
             eprintln!("{}", m);
         }
     } else {
-        let extra = if elo_extra > 0 { format!(" ({} elo-extra)", elo_extra) } else { String::new() };
-        eprintln!("[{}] {}/{} passed{}", name, expressions.len(), expressions.len(), extra);
+        let extra = if elo_extra > 0 {
+            format!(" ({} elo-extra)", elo_extra)
+        } else {
+            String::new()
+        };
+        eprintln!(
+            "[{}] {}/{} passed{}",
+            name,
+            expressions.len(),
+            expressions.len(),
+            extra
+        );
     }
 
     assert!(

@@ -144,9 +144,10 @@ pub fn eval_expr(expr: &Expr, ctx: &EvalContext) -> Value {
             }
         }
 
-        Expr::Prev => {
-            ctx.prev_result.clone().unwrap_or(Value::Error("no previous result".to_string()))
-        }
+        Expr::Prev => ctx
+            .prev_result
+            .clone()
+            .unwrap_or(Value::Error("no previous result".to_string())),
         Expr::Sum => {
             if ctx.block_results.is_empty() {
                 Value::Error("no values to sum".to_string())
@@ -234,7 +235,10 @@ fn eval_unit_sequence(parts: &[(Box<Expr>, String)], ctx: &EvalContext) -> Value
             if let Some(converted) = elo_data::units::convert(n, from_unit, target) {
                 total += converted;
             } else {
-                return Value::Error(format!("cannot convert {} to {}", unit_name, target_unit_name));
+                return Value::Error(format!(
+                    "cannot convert {} to {}",
+                    unit_name, target_unit_name
+                ));
             }
         } else {
             return Value::Error(format!("unknown unit: {}", unit_name));
@@ -271,47 +275,40 @@ fn eval_binary(op: BinOp, left: &Expr, right: &Expr, ctx: &EvalContext) -> Value
     let rv = eval_expr(right, ctx);
 
     // Date/time arithmetic: DateTime +/- duration
-    if matches!(op, BinOp::Add | BinOp::Sub) {
-        if let Some(result) = try_datetime_arithmetic(&lv, &rv, op) {
-            return result;
-        }
+    if matches!(op, BinOp::Add | BinOp::Sub)
+        && let Some(result) = try_datetime_arithmetic(&lv, &rv, op)
+    {
+        return result;
     }
 
     // Handle unit arithmetic: same-unit values can be added/subtracted
     match (&lv, &rv) {
-        (Value::WithUnit(a, unit_a), Value::WithUnit(b, unit_b)) if unit_a == unit_b => {
-            match op {
-                BinOp::Add => return Value::WithUnit(a + b, unit_a.clone()),
-                BinOp::Sub => return Value::WithUnit(a - b, unit_a.clone()),
-                _ => {}
-            }
-        }
-        (Value::Currency(a, code_a), Value::Currency(b, code_b)) if code_a == code_b => {
-            match op {
-                BinOp::Add => return Value::Currency(a + b, code_a.clone()),
-                BinOp::Sub => return Value::Currency(a - b, code_a.clone()),
-                _ => {}
-            }
-        }
+        (Value::WithUnit(a, unit_a), Value::WithUnit(b, unit_b)) if unit_a == unit_b => match op {
+            BinOp::Add => return Value::WithUnit(a + b, unit_a.clone()),
+            BinOp::Sub => return Value::WithUnit(a - b, unit_a.clone()),
+            _ => {}
+        },
+        (Value::Currency(a, code_a), Value::Currency(b, code_b)) if code_a == code_b => match op {
+            BinOp::Add => return Value::Currency(a + b, code_a.clone()),
+            BinOp::Sub => return Value::Currency(a - b, code_a.clone()),
+            _ => {}
+        },
         _ => {}
     }
 
     // Cross-unit arithmetic: convert left to right's unit if same dimension (numi behavior)
-    if matches!(op, BinOp::Add | BinOp::Sub) {
-        if let (Value::WithUnit(a, unit_a), Value::WithUnit(b, unit_b)) = (&lv, &rv) {
-            if unit_a != unit_b {
-                if let Some(converted) = try_unit_convert(*a, unit_a, unit_b) {
-                    if let Value::WithUnit(a_converted, _) = converted {
-                        let result = match op {
-                            BinOp::Add => a_converted + b,
-                            BinOp::Sub => a_converted - b,
-                            _ => unreachable!(),
-                        };
-                        return Value::WithUnit(result, unit_b.clone());
-                    }
-                }
-            }
-        }
+    if matches!(op, BinOp::Add | BinOp::Sub)
+        && let (Value::WithUnit(a, unit_a), Value::WithUnit(b, unit_b)) = (&lv, &rv)
+        && unit_a != unit_b
+        && let Some(converted) = try_unit_convert(*a, unit_a, unit_b)
+        && let Value::WithUnit(a_converted, _) = converted
+    {
+        let result = match op {
+            BinOp::Add => a_converted + b,
+            BinOp::Sub => a_converted - b,
+            _ => unreachable!(),
+        };
+        return Value::WithUnit(result, unit_b.clone());
     }
 
     match (lv.as_number(), rv.as_number()) {
@@ -384,7 +381,9 @@ fn try_datetime_arithmetic(lv: &Value, rv: &Value, op: BinOp) -> Option<Value> {
     if !dt_str.contains(':') {
         Some(Value::DateTime(result_dt.format("%Y-%m-%d").to_string()))
     } else {
-        Some(Value::DateTime(result_dt.format("%Y-%m-%d %H:%M:%S").to_string()))
+        Some(Value::DateTime(
+            result_dt.format("%Y-%m-%d %H:%M:%S").to_string(),
+        ))
     }
 }
 
@@ -395,7 +394,7 @@ fn parse_datetime_str(s: &str) -> Option<NaiveDateTime> {
     }
     // Try date-only
     if let Ok(d) = NaiveDate::parse_from_str(s, "%Y-%m-%d") {
-        return Some(d.and_hms_opt(0, 0, 0)?);
+        return d.and_hms_opt(0, 0, 0);
     }
     None
 }
@@ -436,97 +435,78 @@ fn eval_unary(op: UnaryOp, operand: &Expr, ctx: &EvalContext) -> Value {
 fn eval_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Value {
     let evaluated: Vec<Value> = args.iter().map(|a| eval_expr(a, ctx)).collect();
 
-    let get_num = |i: usize| -> Option<f64> {
-        evaluated.get(i).and_then(|v| v.as_number())
-    };
+    let get_num = |i: usize| -> Option<f64> { evaluated.get(i).and_then(|v| v.as_number()) };
 
     match name {
-        "sqrt" => {
-            get_num(0).map(|n| {
+        "sqrt" => get_num(0)
+            .map(|n| {
                 if n < 0.0 {
                     Value::Error("sqrt of negative number".to_string())
                 } else {
                     Value::Number(n.sqrt())
                 }
-            }).unwrap_or(Value::Error("sqrt requires 1 argument".to_string()))
-        }
-        "cbrt" => {
-            get_num(0).map(|n| Value::Number(n.cbrt()))
-                .unwrap_or(Value::Error("cbrt requires 1 argument".to_string()))
-        }
-        "root" => {
-            match (get_num(0), get_num(1)) {
-                (Some(val), Some(n)) => Value::Number(val.powf(1.0 / n)),
-                _ => Value::Error("root requires 2 arguments: root(value, n)".to_string()),
-            }
-        }
-        "abs" => {
-            get_num(0).map(|n| Value::Number(n.abs()))
-                .unwrap_or(Value::Error("abs requires 1 argument".to_string()))
-        }
-        "log" => {
-            get_num(0).map(|n| Value::Number(n.log10()))
-                .unwrap_or(Value::Error("log requires 1 argument".to_string()))
-        }
-        "ln" => {
-            get_num(0).map(|n| Value::Number(n.ln()))
-                .unwrap_or(Value::Error("ln requires 1 argument".to_string()))
-        }
+            })
+            .unwrap_or(Value::Error("sqrt requires 1 argument".to_string())),
+        "cbrt" => get_num(0)
+            .map(|n| Value::Number(n.cbrt()))
+            .unwrap_or(Value::Error("cbrt requires 1 argument".to_string())),
+        "root" => match (get_num(0), get_num(1)) {
+            (Some(val), Some(n)) => Value::Number(val.powf(1.0 / n)),
+            _ => Value::Error("root requires 2 arguments: root(value, n)".to_string()),
+        },
+        "abs" => get_num(0)
+            .map(|n| Value::Number(n.abs()))
+            .unwrap_or(Value::Error("abs requires 1 argument".to_string())),
+        "log" => get_num(0)
+            .map(|n| Value::Number(n.log10()))
+            .unwrap_or(Value::Error("log requires 1 argument".to_string())),
+        "ln" => get_num(0)
+            .map(|n| Value::Number(n.ln()))
+            .unwrap_or(Value::Error("ln requires 1 argument".to_string())),
         "fact" | "factorial" => {
             // numi's fact() is the identity function, not factorial
-            get_num(0).map(Value::Number)
+            get_num(0)
+                .map(Value::Number)
                 .unwrap_or(Value::Error("fact requires 1 argument".to_string()))
         }
-        "round" => {
-            get_num(0).map(|n| Value::Number(n.round()))
-                .unwrap_or(Value::Error("round requires 1 argument".to_string()))
-        }
-        "ceil" => {
-            get_num(0).map(|n| Value::Number(n.ceil()))
-                .unwrap_or(Value::Error("ceil requires 1 argument".to_string()))
-        }
-        "floor" => {
-            get_num(0).map(|n| Value::Number(n.floor()))
-                .unwrap_or(Value::Error("floor requires 1 argument".to_string()))
-        }
-        "sin" => {
-            get_num(0).map(|n| Value::Number(n.sin()))
-                .unwrap_or(Value::Error("sin requires 1 argument".to_string()))
-        }
-        "cos" => {
-            get_num(0).map(|n| Value::Number(n.cos()))
-                .unwrap_or(Value::Error("cos requires 1 argument".to_string()))
-        }
-        "tan" => {
-            get_num(0).map(|n| Value::Number(n.tan()))
-                .unwrap_or(Value::Error("tan requires 1 argument".to_string()))
-        }
-        "arcsin" | "asin" => {
-            get_num(0).map(|n| Value::Number(n.asin()))
-                .unwrap_or(Value::Error("arcsin requires 1 argument".to_string()))
-        }
-        "arccos" | "acos" => {
-            get_num(0).map(|n| Value::Number(n.acos()))
-                .unwrap_or(Value::Error("arccos requires 1 argument".to_string()))
-        }
-        "arctan" | "atan" => {
-            get_num(0).map(|n| Value::Number(n.atan()))
-                .unwrap_or(Value::Error("arctan requires 1 argument".to_string()))
-        }
-        "sinh" => {
-            get_num(0).map(|n| Value::Number(n.sinh()))
-                .unwrap_or(Value::Error("sinh requires 1 argument".to_string()))
-        }
-        "cosh" => {
-            get_num(0).map(|n| Value::Number(n.cosh()))
-                .unwrap_or(Value::Error("cosh requires 1 argument".to_string()))
-        }
-        "tanh" => {
-            get_num(0).map(|n| Value::Number(n.tanh()))
-                .unwrap_or(Value::Error("tanh requires 1 argument".to_string()))
-        }
-        "fromunix" => {
-            get_num(0).map(|n| {
+        "round" => get_num(0)
+            .map(|n| Value::Number(n.round()))
+            .unwrap_or(Value::Error("round requires 1 argument".to_string())),
+        "ceil" => get_num(0)
+            .map(|n| Value::Number(n.ceil()))
+            .unwrap_or(Value::Error("ceil requires 1 argument".to_string())),
+        "floor" => get_num(0)
+            .map(|n| Value::Number(n.floor()))
+            .unwrap_or(Value::Error("floor requires 1 argument".to_string())),
+        "sin" => get_num(0)
+            .map(|n| Value::Number(n.sin()))
+            .unwrap_or(Value::Error("sin requires 1 argument".to_string())),
+        "cos" => get_num(0)
+            .map(|n| Value::Number(n.cos()))
+            .unwrap_or(Value::Error("cos requires 1 argument".to_string())),
+        "tan" => get_num(0)
+            .map(|n| Value::Number(n.tan()))
+            .unwrap_or(Value::Error("tan requires 1 argument".to_string())),
+        "arcsin" | "asin" => get_num(0)
+            .map(|n| Value::Number(n.asin()))
+            .unwrap_or(Value::Error("arcsin requires 1 argument".to_string())),
+        "arccos" | "acos" => get_num(0)
+            .map(|n| Value::Number(n.acos()))
+            .unwrap_or(Value::Error("arccos requires 1 argument".to_string())),
+        "arctan" | "atan" => get_num(0)
+            .map(|n| Value::Number(n.atan()))
+            .unwrap_or(Value::Error("arctan requires 1 argument".to_string())),
+        "sinh" => get_num(0)
+            .map(|n| Value::Number(n.sinh()))
+            .unwrap_or(Value::Error("sinh requires 1 argument".to_string())),
+        "cosh" => get_num(0)
+            .map(|n| Value::Number(n.cosh()))
+            .unwrap_or(Value::Error("cosh requires 1 argument".to_string())),
+        "tanh" => get_num(0)
+            .map(|n| Value::Number(n.tanh()))
+            .unwrap_or(Value::Error("tanh requires 1 argument".to_string())),
+        "fromunix" => get_num(0)
+            .map(|n| {
                 let ts = n as i64;
                 match Utc.timestamp_opt(ts, 0) {
                     chrono::LocalResult::Single(dt) => {
@@ -535,8 +515,8 @@ fn eval_function(name: &str, args: &[Expr], ctx: &EvalContext) -> Value {
                     }
                     _ => Value::Error("invalid unix timestamp".to_string()),
                 }
-            }).unwrap_or(Value::Error("fromunix requires 1 argument".to_string()))
-        }
+            })
+            .unwrap_or(Value::Error("fromunix requires 1 argument".to_string())),
         _ => Value::Error(format!("unknown function: {}", name)),
     }
 }
@@ -547,22 +527,26 @@ fn eval_conversion(expr: &Expr, target: &str, ctx: &EvalContext) -> Value {
     // Format conversions: hex, binary, octal, sci
     match target {
         "hex" => {
-            return val.as_number()
+            return val
+                .as_number()
                 .map(|n| Value::WithUnit(n, "__hex__".to_string()))
                 .unwrap_or(Value::Error("cannot convert to hex".to_string()));
         }
         "binary" => {
-            return val.as_number()
+            return val
+                .as_number()
                 .map(|n| Value::WithUnit(n, "__binary__".to_string()))
                 .unwrap_or(Value::Error("cannot convert to binary".to_string()));
         }
         "octal" => {
-            return val.as_number()
+            return val
+                .as_number()
                 .map(|n| Value::WithUnit(n, "__octal__".to_string()))
                 .unwrap_or(Value::Error("cannot convert to octal".to_string()));
         }
         "sci" | "scientific" => {
-            return val.as_number()
+            return val
+                .as_number()
                 .map(|n| Value::WithUnit(n, "__sci__".to_string()))
                 .unwrap_or(Value::Error("cannot convert to scientific".to_string()));
         }
@@ -570,10 +554,10 @@ fn eval_conversion(expr: &Expr, target: &str, ctx: &EvalContext) -> Value {
     }
 
     // Timezone conversion: "time in Tokyo", "now in UTC"
-    if let Value::DateTime(ref dt_str) = val {
-        if let Some(tz_result) = try_timezone_conversion(dt_str, target) {
-            return tz_result;
-        }
+    if let Value::DateTime(ref dt_str) = val
+        && let Some(tz_result) = try_timezone_conversion(dt_str, target)
+    {
+        return tz_result;
     }
 
     // Unit/currency conversion
@@ -584,9 +568,10 @@ fn eval_conversion(expr: &Expr, target: &str, ctx: &EvalContext) -> Value {
             }
             Value::Error(format!("cannot convert {} to {}", from_unit, target))
         }
-        Value::Currency(_n, from_code) => {
-            Value::Error(format!("currency conversion {} to {} requires rates", from_code, target))
-        }
+        Value::Currency(_n, from_code) => Value::Error(format!(
+            "currency conversion {} to {} requires rates",
+            from_code, target
+        )),
         Value::Number(n) => {
             if is_currency_unit(target) {
                 Value::Currency(*n, normalize_currency(target))
@@ -615,7 +600,9 @@ fn try_timezone_conversion(dt_str: &str, target: &str) -> Option<Value> {
     let converted = local_dt.with_timezone(&tz);
 
     if dt_str.contains(':') {
-        Some(Value::DateTime(converted.format("%Y-%m-%d %H:%M:%S").to_string()))
+        Some(Value::DateTime(
+            converted.format("%Y-%m-%d %H:%M:%S").to_string(),
+        ))
     } else {
         Some(Value::DateTime(converted.format("%Y-%m-%d").to_string()))
     }
@@ -657,8 +644,6 @@ fn display_unit(id: &str) -> String {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -672,7 +657,9 @@ mod tests {
     }
 
     fn eval_num(input: &str) -> f64 {
-        eval(input).as_number().expect(&format!("expected number for: {}", input))
+        eval(input)
+            .as_number()
+            .expect(&format!("expected number for: {}", input))
     }
 
     #[test]
@@ -988,7 +975,8 @@ mod tests {
         match result {
             Value::DateTime(s) => {
                 let expected = (Local::now().date_naive() + Duration::days(3))
-                    .format("%Y-%m-%d").to_string();
+                    .format("%Y-%m-%d")
+                    .to_string();
                 assert_eq!(s, expected);
             }
             _ => panic!("expected DateTime, got {:?}", result),
@@ -1012,7 +1000,8 @@ mod tests {
         match result {
             Value::DateTime(s) => {
                 let expected = (Local::now().date_naive() - Duration::weeks(2))
-                    .format("%Y-%m-%d").to_string();
+                    .format("%Y-%m-%d")
+                    .to_string();
                 assert_eq!(s, expected);
             }
             _ => panic!("expected DateTime, got {:?}", result),
@@ -1072,7 +1061,8 @@ mod tests {
         match result {
             Value::DateTime(s) => {
                 let expected = (Local::now().date_naive() + Duration::weeks(1))
-                    .format("%Y-%m-%d").to_string();
+                    .format("%Y-%m-%d")
+                    .to_string();
                 assert_eq!(s, expected);
             }
             _ => panic!("expected DateTime, got {:?}", result),
@@ -1085,7 +1075,8 @@ mod tests {
         match result {
             Value::DateTime(s) => {
                 let expected = (Local::now().date_naive() + Duration::days(3))
-                    .format("%Y-%m-%d").to_string();
+                    .format("%Y-%m-%d")
+                    .to_string();
                 assert_eq!(s, expected);
             }
             _ => panic!("expected DateTime, got {:?}", result),

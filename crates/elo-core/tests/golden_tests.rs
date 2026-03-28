@@ -148,7 +148,11 @@ fn test_golden_corpus() {
     }
 
     if !failures.is_empty() {
-        eprintln!("\n=== Golden test failures ({}/{} failed) ===", failed, passed + failed);
+        eprintln!(
+            "\n=== Golden test failures ({}/{} failed) ===",
+            failed,
+            passed + failed
+        );
         for f in &failures {
             eprintln!("{}", f);
         }
@@ -159,9 +163,5 @@ fn test_golden_corpus() {
         passed, failed, skipped
     );
 
-    assert!(
-        failed == 0,
-        "{} golden tests failed (see above)",
-        failed
-    );
+    assert!(failed == 0, "{} golden tests failed (see above)", failed);
 }

@@ -46,7 +46,9 @@ impl Locale {
             "en" | "en_us" | "en-us" | "en_gb" | "en-gb" | "en_au" | "en-au" => Self::en(),
             "de" | "de_de" | "de-de" | "de_at" | "de-at" | "de_ch" | "de-ch" => Self::de(),
             "fr" | "fr_fr" | "fr-fr" | "fr_ca" | "fr-ca" => Self::fr(),
-            "es" | "es_es" | "es-es" | "it" | "it_it" | "it-it" | "pt" | "pt_br" | "pt-br" => Self::de(), // comma decimal
+            "es" | "es_es" | "es-es" | "it" | "it_it" | "it-it" | "pt" | "pt_br" | "pt-br" => {
+                Self::de()
+            } // comma decimal
             "c" | "posix" => Self::c(),
             _ => Self::en(), // default
         }
@@ -94,8 +96,8 @@ impl Default for Locale {
 }
 
 fn add_thousands_sep(s: &str, sep: char) -> String {
-    let (neg, digits) = if s.starts_with('-') {
-        (true, &s[1..])
+    let (neg, digits) = if let Some(stripped) = s.strip_prefix('-') {
+        (true, stripped)
     } else {
         (false, s)
     };

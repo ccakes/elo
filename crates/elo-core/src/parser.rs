@@ -104,16 +104,15 @@ impl Parser {
 
     fn try_parse_label(&mut self) -> Option<String> {
         // Pattern: Ident Colon (with remaining tokens after colon)
-        if self.pos + 1 < self.tokens.len() {
-            if let Token::Ident(ref name) = self.tokens[self.pos].token {
-                if let Token::Colon = self.tokens[self.pos + 1].token {
-                    // Make sure there's something after the colon
-                    if self.pos + 2 < self.tokens.len() {
-                        let label = name.clone();
-                        self.pos += 2; // skip ident and colon
-                        return Some(label);
-                    }
-                }
+        if self.pos + 1 < self.tokens.len()
+            && let Token::Ident(ref name) = self.tokens[self.pos].token
+            && let Token::Colon = self.tokens[self.pos + 1].token
+        {
+            // Make sure there's something after the colon
+            if self.pos + 2 < self.tokens.len() {
+                let label = name.clone();
+                self.pos += 2; // skip ident and colon
+                return Some(label);
             }
         }
         None
@@ -121,39 +120,37 @@ impl Parser {
 
     fn try_parse_assignment(&mut self) -> Option<(String, Expr)> {
         // Pattern: Ident Equals Expr
-        if self.pos + 1 < self.tokens.len() {
-            if let Token::Ident(ref name) = self.tokens[self.pos].token {
-                if let Token::Equals = self.tokens[self.pos + 1].token {
-                    let name = name.clone();
-                    self.pos += 2; // skip ident and =
-                    let expr = self.parse_expr();
-                    return Some((name, expr));
-                }
-            }
+        if self.pos + 1 < self.tokens.len()
+            && let Token::Ident(ref name) = self.tokens[self.pos].token
+            && let Token::Equals = self.tokens[self.pos + 1].token
+        {
+            let name = name.clone();
+            self.pos += 2; // skip ident and =
+            let expr = self.parse_expr();
+            return Some((name, expr));
         }
         None
     }
 
     pub fn parse_expr(&mut self) -> Expr {
-        let expr = self.parse_conversion();
-        expr
+        self.parse_conversion()
     }
 
     /// Parse conversion: expr (in|into|as|to) target
     fn parse_conversion(&mut self) -> Expr {
         let expr = self.parse_percent_ops();
 
-        if let Some(Token::Ident(ref word)) = self.peek() {
-            if is_conversion_word(word) {
+        if let Some(Token::Ident(ref word)) = self.peek()
+            && is_conversion_word(word)
+        {
+            self.advance();
+            if let Some(Token::Ident(ref target)) = self.peek() {
+                let target = target.clone();
                 self.advance();
-                if let Some(Token::Ident(ref target)) = self.peek() {
-                    let target = target.clone();
-                    self.advance();
-                    return Expr::Conversion {
-                        expr: Box::new(expr),
-                        target,
-                    };
-                }
+                return Expr::Conversion {
+                    expr: Box::new(expr),
+                    target,
+                };
             }
         }
         expr
@@ -172,19 +169,19 @@ impl Parser {
                     "of" => {
                         self.advance();
                         // Check for "of what is" pattern
-                        if let Some(Token::Ident(ref w)) = self.peek() {
-                            if w == "what" {
+                        if let Some(Token::Ident(ref w)) = self.peek()
+                            && w == "what"
+                        {
+                            self.advance();
+                            if let Some(Token::Ident(ref w2)) = self.peek()
+                                && w2 == "is"
+                            {
                                 self.advance();
-                                if let Some(Token::Ident(ref w2)) = self.peek() {
-                                    if w2 == "is" {
-                                        self.advance();
-                                        let result = self.parse_bitwise_or();
-                                        return Expr::PercentOfWhatIs {
-                                            percent: Box::new(Expr::Number(pct_val)),
-                                            result: Box::new(result),
-                                        };
-                                    }
-                                }
+                                let result = self.parse_bitwise_or();
+                                return Expr::PercentOfWhatIs {
+                                    percent: Box::new(Expr::Number(pct_val)),
+                                    result: Box::new(result),
+                                };
                             }
                         }
                         let base = self.parse_bitwise_or();
@@ -388,10 +385,10 @@ impl Parser {
                 Some(Token::Ident(ref w)) if w == "multiplied" => {
                     self.advance();
                     // expect "by"
-                    if let Some(Token::Ident(ref w2)) = self.peek() {
-                        if w2 == "by" {
-                            self.advance();
-                        }
+                    if let Some(Token::Ident(ref w2)) = self.peek()
+                        && w2 == "by"
+                    {
+                        self.advance();
                     }
                     let right = self.parse_mod();
                     left = Expr::BinaryOp {
@@ -403,10 +400,10 @@ impl Parser {
                 Some(Token::Ident(ref w)) if is_div_word(w) => {
                     self.advance();
                     // optional "by"
-                    if let Some(Token::Ident(ref w2)) = self.peek() {
-                        if w2 == "by" {
-                            self.advance();
-                        }
+                    if let Some(Token::Ident(ref w2)) = self.peek()
+                        && w2 == "by"
+                    {
+                        self.advance();
                     }
                     let right = self.parse_mod();
                     left = Expr::BinaryOp {
@@ -551,18 +548,18 @@ impl Parser {
             }
 
             // Peek ahead: is there a unit after the number?
-            if self.pos + 1 < self.tokens.len() {
-                if let Token::Ident(ref next_unit) = self.tokens[self.pos + 1].token {
-                    if is_unit_like(next_unit) && unit_dimension(next_unit) == Some(dim) {
-                        // Consume number and unit
-                        let num_expr = self.parse_primary();
-                        if let Some(Token::Ident(ref u)) = self.peek() {
-                            let u = u.clone();
-                            self.advance();
-                            parts.push((Box::new(num_expr), u));
-                            continue;
-                        }
-                    }
+            if self.pos + 1 < self.tokens.len()
+                && let Token::Ident(ref next_unit) = self.tokens[self.pos + 1].token
+                && is_unit_like(next_unit)
+                && unit_dimension(next_unit) == Some(dim)
+            {
+                // Consume number and unit
+                let num_expr = self.parse_primary();
+                if let Some(Token::Ident(ref u)) = self.peek() {
+                    let u = u.clone();
+                    self.advance();
+                    parts.push((Box::new(num_expr), u));
+                    continue;
                 }
             }
             break;
@@ -579,27 +576,22 @@ impl Parser {
     fn parse_primary(&mut self) -> Expr {
         match self.peek() {
             Some(Token::Number(n)) => {
-                let n = n;
                 self.advance();
                 Expr::Number(n)
             }
             Some(Token::HexNumber(n)) => {
-                let n = n;
                 self.advance();
                 Expr::HexLiteral(n)
             }
             Some(Token::BinNumber(n)) => {
-                let n = n;
                 self.advance();
                 Expr::BinLiteral(n)
             }
             Some(Token::OctNumber(n)) => {
-                let n = n;
                 self.advance();
                 Expr::OctLiteral(n)
             }
             Some(Token::SciNumber(val, text)) => {
-                let val = val;
                 let text = text.clone();
                 self.advance();
                 Expr::SciLiteral(val, text)
@@ -618,29 +610,45 @@ impl Parser {
 
                 // Session tokens
                 match name.as_str() {
-                    "prev" => { self.advance(); return Expr::Prev; }
-                    "sum" | "total" => { self.advance(); return Expr::Sum; }
-                    "avg" | "average" => { self.advance(); return Expr::Avg; }
-                    "today" => { self.advance(); return Expr::Today; }
-                    "tomorrow" => { self.advance(); return Expr::Tomorrow; }
-                    "yesterday" => { self.advance(); return Expr::Yesterday; }
+                    "prev" => {
+                        self.advance();
+                        return Expr::Prev;
+                    }
+                    "sum" | "total" => {
+                        self.advance();
+                        return Expr::Sum;
+                    }
+                    "avg" | "average" => {
+                        self.advance();
+                        return Expr::Avg;
+                    }
+                    "today" => {
+                        self.advance();
+                        return Expr::Today;
+                    }
+                    "tomorrow" => {
+                        self.advance();
+                        return Expr::Tomorrow;
+                    }
+                    "yesterday" => {
+                        self.advance();
+                        return Expr::Yesterday;
+                    }
                     _ => {}
                 }
 
                 // Check if it's a function call: name(args)
-                if self.pos + 1 < self.tokens.len() {
-                    if let Token::LParen = &self.tokens[self.pos + 1].token {
-                        if elo_data::functions::is_builtin_function(&name) {
-                            return self.parse_func_call(&name);
-                        }
-                    }
+                if self.pos + 1 < self.tokens.len()
+                    && let Token::LParen = &self.tokens[self.pos + 1].token
+                    && elo_data::functions::is_builtin_function(&name)
+                {
+                    return self.parse_func_call(&name);
                 }
 
                 // Currency symbol followed by number: $ 100, € 50
                 if is_currency_symbol(&name) {
                     self.advance();
                     if let Some(Token::Number(n)) = self.peek() {
-                        let n = n;
                         self.advance();
                         let code = symbol_to_currency_code(&name);
                         return Expr::WithUnit(Box::new(Expr::Number(n)), code.to_string());
@@ -706,32 +714,167 @@ fn expr_as_number(expr: &Expr) -> Option<f64> {
 fn is_unit_like(name: &str) -> bool {
     // Known unit names and abbreviations
     let lower = name.to_lowercase();
-    matches!(lower.as_str(),
-        "mm" | "cm" | "dm" | "meter" | "meters" | "metre" | "metres" |
-        "km" | "inch" | "inches" | "ft" | "foot" | "feet" | "yd" | "yard" | "yards" |
-        "mi" | "mile" | "miles" | "nmi" |
-        "mg" | "g" | "gram" | "grams" | "kg" | "kilogram" | "kilograms" | "kilo" | "kilos" |
-        "oz" | "ounce" | "ounces" | "lb" | "lbs" | "pound" | "pounds" | "st" | "stone" | "stones" |
-        "ton" | "tons" | "tonne" | "tonnes" |
-        "ms" | "s" | "sec" | "second" | "seconds" | "min" | "minute" | "minutes" |
-        "hr" | "hour" | "hours" | "day" | "days" | "week" | "weeks" |
-        "month" | "months" | "year" | "years" |
-        "celsius" | "fahrenheit" | "kelvin" |
-        "rad" | "radian" | "radians" | "deg" | "degree" | "degrees" |
-        "bit" | "bits" | "byte" | "bytes" |
-        "kb" | "mb" | "gb" | "tb" | "pb" | "kib" | "mib" | "gib" | "tib" |
-        "px" | "pixel" | "pixels" | "pt" | "point" | "points" |
-        "pc" | "pica" | "picas" | "em" | "rem" | "vw" | "vh" |
-        "ml" | "cl" | "liter" | "liters" | "litre" | "litres" | "l" |
-        "gal" | "gallon" | "gallons" | "qt" | "quart" | "quarts" |
-        "cup" | "cups" | "floz" | "tbsp" | "tsp" |
-        "mph" | "kmph" | "kph" | "knot" | "knots" |
-        "hectare" | "hectares" | "ha" | "acre" | "acres" |
-        "usd" | "eur" | "gbp" | "jpy" | "cny" | "aud" | "cad" | "chf" |
-        "sek" | "nzd" | "krw" | "sgd" | "nok" | "mxn" | "inr" | "rub" |
-        "brl" | "zar" | "hkd" | "twd" | "pln" | "thb" | "idr" | "czk" |
-        "ils" | "php" | "try" | "dkk" | "btc" | "eth"
-    ) || name == "°C" || name == "°F" || name == "″" || name == "m/s" || name == "km/h"
+    matches!(
+        lower.as_str(),
+        "mm" | "cm"
+            | "dm"
+            | "meter"
+            | "meters"
+            | "metre"
+            | "metres"
+            | "km"
+            | "inch"
+            | "inches"
+            | "ft"
+            | "foot"
+            | "feet"
+            | "yd"
+            | "yard"
+            | "yards"
+            | "mi"
+            | "mile"
+            | "miles"
+            | "nmi"
+            | "mg"
+            | "g"
+            | "gram"
+            | "grams"
+            | "kg"
+            | "kilogram"
+            | "kilograms"
+            | "kilo"
+            | "kilos"
+            | "oz"
+            | "ounce"
+            | "ounces"
+            | "lb"
+            | "lbs"
+            | "pound"
+            | "pounds"
+            | "st"
+            | "stone"
+            | "stones"
+            | "ton"
+            | "tons"
+            | "tonne"
+            | "tonnes"
+            | "ms"
+            | "s"
+            | "sec"
+            | "second"
+            | "seconds"
+            | "min"
+            | "minute"
+            | "minutes"
+            | "hr"
+            | "hour"
+            | "hours"
+            | "day"
+            | "days"
+            | "week"
+            | "weeks"
+            | "month"
+            | "months"
+            | "year"
+            | "years"
+            | "celsius"
+            | "fahrenheit"
+            | "kelvin"
+            | "rad"
+            | "radian"
+            | "radians"
+            | "deg"
+            | "degree"
+            | "degrees"
+            | "bit"
+            | "bits"
+            | "byte"
+            | "bytes"
+            | "kb"
+            | "mb"
+            | "gb"
+            | "tb"
+            | "pb"
+            | "kib"
+            | "mib"
+            | "gib"
+            | "tib"
+            | "px"
+            | "pixel"
+            | "pixels"
+            | "pt"
+            | "point"
+            | "points"
+            | "pc"
+            | "pica"
+            | "picas"
+            | "em"
+            | "rem"
+            | "vw"
+            | "vh"
+            | "ml"
+            | "cl"
+            | "liter"
+            | "liters"
+            | "litre"
+            | "litres"
+            | "l"
+            | "gal"
+            | "gallon"
+            | "gallons"
+            | "qt"
+            | "quart"
+            | "quarts"
+            | "cup"
+            | "cups"
+            | "floz"
+            | "tbsp"
+            | "tsp"
+            | "mph"
+            | "kmph"
+            | "kph"
+            | "knot"
+            | "knots"
+            | "hectare"
+            | "hectares"
+            | "ha"
+            | "acre"
+            | "acres"
+            | "usd"
+            | "eur"
+            | "gbp"
+            | "jpy"
+            | "cny"
+            | "aud"
+            | "cad"
+            | "chf"
+            | "sek"
+            | "nzd"
+            | "krw"
+            | "sgd"
+            | "nok"
+            | "mxn"
+            | "inr"
+            | "rub"
+            | "brl"
+            | "zar"
+            | "hkd"
+            | "twd"
+            | "pln"
+            | "thb"
+            | "idr"
+            | "czk"
+            | "ils"
+            | "php"
+            | "try"
+            | "dkk"
+            | "btc"
+            | "eth"
+    ) || name == "°C"
+        || name == "°F"
+        || name == "″"
+        || name == "m/s"
+        || name == "km/h"
 }
 
 /// Can this identifier attach as a postfix unit to a number?
@@ -744,7 +887,10 @@ fn can_attach_unit(word: &str) -> bool {
         && !is_div_word(word)
         && !is_session_token(word)
         && !is_date_keyword(word)
-        && !matches!(word, "mod" | "of" | "on" | "off" | "multiplied" | "xor" | "what" | "is")
+        && !matches!(
+            word,
+            "mod" | "of" | "on" | "off" | "multiplied" | "xor" | "what" | "is"
+        )
 }
 
 /// Get the dimension tag for a unit name (for same-dimension checks in unit sequences).
@@ -754,7 +900,10 @@ fn unit_dimension(name: &str) -> Option<u8> {
 }
 
 fn is_currency_symbol(s: &str) -> bool {
-    matches!(s, "$" | "€" | "£" | "¥" | "₹" | "₩" | "₿" | "₺" | "₪" | "₱" | "₽" | "฿")
+    matches!(
+        s,
+        "$" | "€" | "£" | "¥" | "₹" | "₩" | "₿" | "₺" | "₪" | "₱" | "₽" | "฿"
+    )
 }
 
 fn symbol_to_currency_code(s: &str) -> &str {
@@ -859,11 +1008,41 @@ mod tests {
 
     #[test]
     fn test_session_tokens() {
-        assert!(matches!(parse("prev"), Line::Expression { expr: Expr::Prev, .. }));
-        assert!(matches!(parse("sum"), Line::Expression { expr: Expr::Sum, .. }));
-        assert!(matches!(parse("avg"), Line::Expression { expr: Expr::Avg, .. }));
-        assert!(matches!(parse("total"), Line::Expression { expr: Expr::Sum, .. }));
-        assert!(matches!(parse("average"), Line::Expression { expr: Expr::Avg, .. }));
+        assert!(matches!(
+            parse("prev"),
+            Line::Expression {
+                expr: Expr::Prev,
+                ..
+            }
+        ));
+        assert!(matches!(
+            parse("sum"),
+            Line::Expression {
+                expr: Expr::Sum,
+                ..
+            }
+        ));
+        assert!(matches!(
+            parse("avg"),
+            Line::Expression {
+                expr: Expr::Avg,
+                ..
+            }
+        ));
+        assert!(matches!(
+            parse("total"),
+            Line::Expression {
+                expr: Expr::Sum,
+                ..
+            }
+        ));
+        assert!(matches!(
+            parse("average"),
+            Line::Expression {
+                expr: Expr::Avg,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -904,7 +1083,9 @@ mod tests {
     fn test_scale_k() {
         let line = parse("1k");
         if let Line::Expression { expr, .. } = line {
-            assert!(matches!(expr, Expr::Scaled(n, Scale::Thousand) if (n - 1.0).abs() < f64::EPSILON));
+            assert!(
+                matches!(expr, Expr::Scaled(n, Scale::Thousand) if (n - 1.0).abs() < f64::EPSILON)
+            );
         }
     }
 

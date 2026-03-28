@@ -12,9 +12,7 @@ pub fn format_value(value: &Value) -> String {
         Value::WithUnit(n, unit) if unit == "__octal__" => {
             format!("0o{:o}", *n as i64)
         }
-        Value::WithUnit(n, unit) if unit == "__sci__" => {
-            format_scientific(*n)
-        }
+        Value::WithUnit(n, unit) if unit == "__sci__" => format_scientific(*n),
         _ => value.to_string(),
     }
 }
