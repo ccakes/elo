@@ -136,13 +136,17 @@ mod tests {
     #[test]
     fn test_en_locale_decimal() {
         let locale = Locale::en();
-        assert_eq!(locale.format_number(3.14), "3.14");
+        #[allow(clippy::approx_constant)]
+        let n = 3.14;
+        assert_eq!(locale.format_number(n), "3.14");
     }
 
     #[test]
     fn test_de_locale_decimal() {
         let locale = Locale::de();
-        assert_eq!(locale.format_number(3.14), "3,14");
+        #[allow(clippy::approx_constant)]
+        let n = 3.14;
+        assert_eq!(locale.format_number(n), "3,14");
     }
 
     #[test]

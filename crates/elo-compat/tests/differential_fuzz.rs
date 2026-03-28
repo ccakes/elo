@@ -331,15 +331,16 @@ fn fuzz_percentage_combos() {
 #[test]
 #[ignore]
 fn fuzz_unit_sequences() {
-    let mut exprs = Vec::new();
-    exprs.push("1 meter 20 cm".to_string());
-    exprs.push("2 meter 50 cm".to_string());
-    exprs.push("5 feet 3 inches".to_string());
-    exprs.push("6 feet 0 inches".to_string());
-    exprs.push("1 kg 500 g".to_string());
-    exprs.push("2 kg 250 g".to_string());
-    exprs.push("1 hour 30 minutes".to_string());
-    exprs.push("2 hours 15 minutes".to_string());
+    let exprs = vec![
+        "1 meter 20 cm".to_string(),
+        "2 meter 50 cm".to_string(),
+        "5 feet 3 inches".to_string(),
+        "6 feet 0 inches".to_string(),
+        "1 kg 500 g".to_string(),
+        "2 kg 250 g".to_string(),
+        "1 hour 30 minutes".to_string(),
+        "2 hours 15 minutes".to_string(),
+    ];
 
     fuzz_category("unit_sequences", &exprs);
 }

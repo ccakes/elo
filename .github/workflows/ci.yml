@@ -90,24 +90,17 @@ jobs:
         with:
           version: latest
 
-      - name: Install frontend dependencies
-        working-directory: elo-tauri
-        run: pnpm install
-
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version "^2"
 
       - name: Build macOS app
-        working-directory: elo-tauri
-        run: cargo tauri build --bundles app,dmg
+        run: make build-macos
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-app
-          path: |
-            target/release/bundle/macos/Elo.app
-            target/release/bundle/dmg/*.dmg
+          path: build/*
 
   build-linux:
     name: Build Linux Packages
@@ -144,25 +137,17 @@ jobs:
         with:
           version: latest
 
-      - name: Install frontend dependencies
-        working-directory: elo-tauri
-        run: pnpm install
-
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version "^2"
 
       - name: Build Linux packages
-        working-directory: elo-tauri
-        run: cargo tauri build --bundles deb,appimage,rpm
+        run: make build-linux
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-packages
-          path: |
-            target/release/bundle/deb/*.deb
-            target/release/bundle/appimage/*.AppImage
-            target/release/bundle/rpm/*.rpm
+          path: build/*
 
   release:
     name: Publish Release
@@ -183,16 +168,14 @@ jobs:
         run: |
           mkdir -p release-assets
           # macOS
-          cd artifacts/macos-app
-          if [ -d "target/release/bundle/macos/Elo.app" ]; then
-            (cd target/release/bundle/macos && zip -r ../../../../../release-assets/Elo-macos.app.zip Elo.app)
+          if [ -d "artifacts/macos-app/Elo.app" ]; then
+            (cd artifacts/macos-app && zip -r ../../release-assets/Elo-macos.app.zip Elo.app)
           fi
-          cp target/release/bundle/dmg/*.dmg ../../release-assets/ 2>/dev/null || true
-          cd ../..
+          cp artifacts/macos-app/*.dmg release-assets/ 2>/dev/null || true
           # Linux
-          cp artifacts/linux-packages/target/release/bundle/deb/*.deb release-assets/ 2>/dev/null || true
-          cp artifacts/linux-packages/target/release/bundle/appimage/*.AppImage release-assets/ 2>/dev/null || true
-          cp artifacts/linux-packages/target/release/bundle/rpm/*.rpm release-assets/ 2>/dev/null || true
+          cp artifacts/linux-packages/*.deb release-assets/ 2>/dev/null || true
+          cp artifacts/linux-packages/*.AppImage release-assets/ 2>/dev/null || true
+          cp artifacts/linux-packages/*.rpm release-assets/ 2>/dev/null || true
           ls -la release-assets/
 
       - name: Create GitHub Release

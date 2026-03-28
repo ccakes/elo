@@ -659,7 +659,7 @@ mod tests {
     fn eval_num(input: &str) -> f64 {
         eval(input)
             .as_number()
-            .expect(&format!("expected number for: {}", input))
+            .unwrap_or_else(|| panic!("expected number for: {}", input))
     }
 
     #[test]

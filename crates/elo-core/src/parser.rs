@@ -959,12 +959,14 @@ mod tests {
     #[test]
     fn test_precedence() {
         let line = parse("2 + 3 * 4");
-        if let Line::Expression { expr, .. } = line {
-            if let Expr::BinaryOp { op, left, right } = expr {
-                assert_eq!(op, BinOp::Add);
-                assert!(matches!(*left, Expr::Number(n) if (n - 2.0).abs() < f64::EPSILON));
-                assert!(matches!(*right, Expr::BinaryOp { op: BinOp::Mul, .. }));
-            }
+        if let Line::Expression {
+            expr: Expr::BinaryOp { op, left, right },
+            ..
+        } = line
+        {
+            assert_eq!(op, BinOp::Add);
+            assert!(matches!(*left, Expr::Number(n) if (n - 2.0).abs() < f64::EPSILON));
+            assert!(matches!(*right, Expr::BinaryOp { op: BinOp::Mul, .. }));
         }
     }
 

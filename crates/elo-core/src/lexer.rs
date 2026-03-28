@@ -414,7 +414,9 @@ mod tests {
 
     #[test]
     fn test_decimal_number() {
-        assert_eq!(tokens("3.14"), vec![Token::Number(3.14)]);
+        #[allow(clippy::approx_constant)]
+        let expected = vec![Token::Number(3.14)];
+        assert_eq!(tokens("3.14"), expected);
     }
 
     #[test]
