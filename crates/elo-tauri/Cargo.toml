@@ -1,0 +1,22 @@
+[package]
+name = "elo-tauri"
+version = "0.1.0"
+description = "Elo — a Numi-compatible calculator"
+edition = "2021"
+
+[lib]
+name = "elo_tauri_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+elo-core = { path = "../elo-core" }
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

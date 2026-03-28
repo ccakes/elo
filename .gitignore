@@ -1,0 +1,6 @@
+/SPEC.md
+/target
+/build
+*.swp
+*.swo
+.DS_Store

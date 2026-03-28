@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/elo-core",
+    "crates/elo-cli",
+    "crates/elo-compat",
+    "crates/elo-data",
+    "crates/elo-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"

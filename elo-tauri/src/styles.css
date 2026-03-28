@@ -1,0 +1,237 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: #1e1e2e;
+  --bg-surface: #252536;
+  --bg-hover: #2a2a3d;
+  --text: #cdd6f4;
+  --text-muted: #6c7086;
+  --text-result: #a6e3a1;
+  --text-error: #f38ba8;
+  --text-header: #89b4fa;
+  --text-comment: #585b70;
+  --text-label: #f9e2af;
+  --text-datetime: #cba6f7;
+  --border: #313244;
+  --accent: #89b4fa;
+  --toolbar-bg: #181825;
+  --statusbar-bg: #181825;
+  --scrollbar: #45475a;
+  --scrollbar-hover: #585b70;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Consolas, monospace;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* Toolbar */
+#toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  padding: 0 12px;
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+}
+
+.app-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+
+.toolbar-actions button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.toolbar-actions button:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* Editor container */
+#editor-container {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+
+#editor {
+  flex: 1;
+  background: var(--bg);
+  color: var(--text);
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 16px 20px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.6;
+  tab-size: 2;
+  overflow-y: auto;
+  user-select: text;
+}
+
+#editor::placeholder {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+#editor::-webkit-scrollbar {
+  width: 8px;
+}
+
+#editor::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#editor::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 4px;
+}
+
+#editor::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-hover);
+}
+
+/* Results gutter */
+#results {
+  width: 260px;
+  min-width: 180px;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border);
+  padding: 16px 16px 16px 12px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+#results::-webkit-scrollbar {
+  width: 6px;
+}
+
+#results::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#results::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 3px;
+}
+
+.result-line {
+  height: 22.4px;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-result);
+  cursor: pointer;
+  padding-right: 4px;
+  border-radius: 3px;
+  transition: background 0.1s;
+}
+
+.result-line:hover:not(.empty) {
+  background: var(--bg-hover);
+}
+
+.result-line.empty {
+  color: transparent;
+  cursor: default;
+}
+
+.result-line.error {
+  color: var(--text-error);
+}
+
+.result-line.header {
+  color: var(--text-header);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.result-line.comment {
+  color: var(--text-comment);
+  font-style: italic;
+  font-size: 12px;
+}
+
+.result-line.datetime {
+  color: var(--text-datetime);
+}
+
+/* Statusbar */
+#statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 24px;
+  padding: 0 12px;
+  background: var(--statusbar-bg);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Copy toast */
+.toast {
+  position: fixed;
+  bottom: 40px;
+  right: 16px;
+  background: var(--accent);
+  color: var(--toolbar-bg);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.2s ease;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Elo</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+  <body>
+    <div id="app">
+      <div id="toolbar">
+        <span class="app-title">Elo</span>
+        <div class="toolbar-actions">
+          <button id="btn-new" title="New (Cmd+N)">New</button>
+          <button id="btn-open" title="Open (Cmd+O)">Open</button>
+          <button id="btn-save" title="Save (Cmd+S)">Save</button>
+          <button id="btn-export" title="Export">Export</button>
+          <button id="btn-copy-all" title="Copy All Results">Copy Results</button>
+        </div>
+      </div>
+      <div id="editor-container">
+        <textarea id="editor" spellcheck="false" placeholder="Start typing expressions...
+
+Examples:
+  2 + 3 * 4
+  50% of 200
+  1 meter in cm
+  pi * 2
+  today + 1 week
+  time in UTC
+
+Use # for headers, // for comments
+Label: expression"></textarea>
+        <div id="results"></div>
+      </div>
+      <div id="statusbar">
+        <span id="status-left"></span>
+        <span id="status-right"></span>
+      </div>
+    </div>
+  </body>
+</html>

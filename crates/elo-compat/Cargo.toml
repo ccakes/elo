@@ -1,0 +1,10 @@
+[package]
+name = "elo-compat"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+elo-core = { path = "../elo-core" }
+chrono = "0.4"
+
+[dev-dependencies]

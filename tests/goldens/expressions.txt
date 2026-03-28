@@ -1,0 +1,113 @@
+# Golden test fixtures for elo
+# Format: input \t expected_output \t tags
+# Outputs marked DATE/DATETIME are time-sensitive and compared structurally
+# Generated from numi-cli v0.18.0 behavioral observations
+#
+2 + 2\t4\tarithmetic
+3 * 4\t12\tarithmetic
+10 - 3\t7\tarithmetic
+12 / 4\t3\tarithmetic
+2 ^ 10\t1024\tarithmetic
+10 mod 3\t1\tarithmetic
+2 + 3 * 4\t14\tarithmetic,precedence
+(2 + 3) * 4\t20\tarithmetic,precedence
+10 plus 5\t15\tarithmetic,word_op
+10 minus 3\t7\tarithmetic,word_op
+3 times 4\t12\tarithmetic,word_op
+12 divide by 3\t4\tarithmetic,word_op
+10 multiplied by 5\t50\tarithmetic,word_op
+10 without 3\t7\tarithmetic,word_op
+-5 + 3\t-2\tarithmetic,unary
+0 + 0\t0\tarithmetic,edge
+-10 * -3\t30\tarithmetic,unary
+2 ^ 0\t1\tarithmetic
+1 + 2 + 3 + 4\t10\tarithmetic
+10 - 3 - 2\t5\tarithmetic
+(1 + 2) * (3 + 4)\t21\tarithmetic,precedence
+sqrt(16)\t4\tfunction
+sqrt(2)\t1.41\tfunction
+sqrt(0)\t0\tfunction
+cbrt(27)\t3\tfunction
+cbrt(8)\t2\tfunction
+abs(-5)\t5\tfunction
+abs(0)\t0\tfunction
+round(3.7)\t4\tfunction
+round(3.2)\t3\tfunction
+ceil(3.2)\t4\tfunction
+floor(3.8)\t3\tfunction
+sin(0)\t0\tfunction,trig
+cos(0)\t1\tfunction,trig
+tan(0)\t0\tfunction,trig
+ln(1)\t0\tfunction
+fact(5)\t5\tfunction
+fact(0)\t0\tfunction
+1k\t1000\tscale
+3k\t3000\tscale
+10M\t10000000\tscale
+1 billion\t1000000000\tscale
+2 billion\t2000000000\tscale
+100k\t100000\tscale
+5 & 3\t1\tbitwise
+5 \t 3\t7\tbitwise
+5 xor 3\t6\tbitwise
+1 << 3\t8\tbitwise
+8 >> 2\t2\tbitwise
+255 & 15\t15\tbitwise
+0 \t 0\t0\tbitwise
+15 xor 15\t0\tbitwise
+1 << 10\t1024\tbitwise
+1024 >> 5\t32\tbitwise
+7 \t 8\t15\tbitwise
+10 as hex\t0xa\tformat
+10 as binary\t0b1010\tformat
+10 as octal\t0o12\tformat
+255 as hex\t0xff\tformat
+100 in sci\t1e2\tformat
+50% of 200\t100\tpercent
+10% on 100\t110\tpercent
+10% off 100\t90\tpercent
+100 - 30%\t70\tpercent
+100 + 10%\t110\tpercent
+5% of what is 10\t200\tpercent,inverse
+25% of 80\t20\tpercent
+0% of 100\t0\tpercent,edge
+100% of 100\t100\tpercent
+50% off 200\t100\tpercent
+20% on 500\t600\tpercent
+1 meter in cm\t100 cm\tunit,length
+100 cm in inches\t39.37 ″\tunit,length
+72 fahrenheit in celsius\t22.22 °C\tunit,temperature
+1 kg in pounds\t2.20 lb\tunit,mass
+1 hour in minutes\t60 min\tunit,time
+1 mile in km\t1.61 km\tunit,length
+1 foot in cm\t30.48 cm\tunit,length
+1 yard in meters\t0.91 m\tunit,length
+1000 g in kg\t1 kg\tunit,mass
+60 seconds in minutes\t1 min\tunit,time
+24 hours in days\t1 day\tunit,time
+1 km in meters\t1000 m\tunit,length
+1 meter 20 cm\t120 cm\tunit_sequence
+5 feet 3 inches\t63 ″\tunit_sequence
+5 meter + 200 cm\t700 cm\tcross_unit
+3 kg + 500 g\t3500 g\tcross_unit
+1 hour + 30 minutes\t90 min\tcross_unit
+pi\t3.14\tconstant
+e\t2.72\tconstant
+pi * 2\t6.28\tconstant
+today\tDATE\tdate
+tomorrow\tDATE\tdate
+yesterday\tDATE\tdate
+today + 1 week\tDATE\tdate,arithmetic
+tomorrow + 2 days\tDATE\tdate,arithmetic
+time in UTC\tDATETIME\ttimezone
+time in America/New_York\tDATETIME\ttimezone
+time in Europe/London\tDATETIME\ttimezone
+time in Asia/Tokyo\tDATETIME\ttimezone
+# Header\t\tstructure,header
+// comment\t\tstructure,comment
+Label: 5 + 5\t10\tstructure,label
+Total: 100\t100\tstructure,label
+0\t0\tedge
+1\t1\tedge
+-1\t-1\tedge
+1 / 0\terror\tedge,error

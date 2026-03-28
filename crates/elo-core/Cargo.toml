@@ -1,0 +1,12 @@
+[package]
+name = "elo-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+elo-data = { path = "../elo-data" }
+chrono = "0.4"
+chrono-tz = "0.10"
+
+[dev-dependencies]
+proptest = "1"
