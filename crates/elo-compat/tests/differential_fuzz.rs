@@ -1,4 +1,13 @@
 use std::process::Command;
+use std::sync::OnceLock;
+
+use elo_core::RateStore;
+
+static RATES: OnceLock<Option<std::sync::Arc<RateStore>>> = OnceLock::new();
+
+fn rates() -> Option<std::sync::Arc<RateStore>> {
+    RATES.get_or_init(RateStore::load).clone()
+}
 
 fn numi_eval(expr: &str) -> Option<String> {
     let output = Command::new("numi-cli").arg("--").arg(expr).output().ok()?;
@@ -15,7 +24,7 @@ fn numi_eval(expr: &str) -> Option<String> {
 }
 
 fn elo_eval(expr: &str) -> String {
-    let mut session = elo_core::Session::new();
+    let mut session = elo_core::Session::with_rates(rates());
     session.eval_line(expr).display
 }
 
@@ -343,4 +352,155 @@ fn fuzz_unit_sequences() {
     ];
 
     fuzz_category("unit_sequences", &exprs);
+}
+
+// === Fuzz: Currency Conversions ===
+
+/// Compare currency conversions with ~5% tolerance (rates may differ by fetch timing).
+fn currency_semantic_match(numi: &str, elo: &str) -> bool {
+    if numi == elo {
+        return true;
+    }
+
+    // Extract numeric values from both, ignoring currency symbols
+    let n_num = extract_currency_number(numi);
+    let e_num = extract_currency_number(elo);
+
+    if let (Some(a), Some(b)) = (n_num, e_num) {
+        let tol = a.abs() * 0.05 + 0.01; // 5% tolerance for rate differences
+        if (a - b).abs() < tol {
+            // Verify same currency in output (same prefix symbol)
+            let n_sym = extract_currency_symbol(numi);
+            let e_sym = extract_currency_symbol(elo);
+            return n_sym == e_sym;
+        }
+    }
+
+    false
+}
+
+fn extract_currency_number(s: &str) -> Option<f64> {
+    let s = s.trim();
+    // Strip currency symbol prefix (with or without space)
+    let symbols = ["$", "€", "£", "¥", "₹", "₩", "₿"];
+    for sym in &symbols {
+        if let Some(rest) = s.strip_prefix(sym) {
+            return rest.trim().parse().ok();
+        }
+    }
+    s.parse().ok()
+}
+
+fn extract_currency_symbol(s: &str) -> &str {
+    let s = s.trim();
+    let symbols: &[&str] = &["$", "€", "£", "¥", "₹", "₩", "₿"];
+    for sym in symbols {
+        if s.starts_with(sym) {
+            return sym;
+        }
+    }
+    ""
+}
+
+fn fuzz_currency_inner(name: &str, expressions: &[String]) {
+    let mut mismatches = Vec::new();
+    let mut elo_extra = 0;
+
+    for expr in expressions {
+        let numi = numi_eval(expr);
+        let elo = elo_eval(expr);
+
+        let ok = match &numi {
+            Some(n) => currency_semantic_match(n, &elo),
+            None => {
+                if elo.is_empty() || elo.contains("error") {
+                    true
+                } else {
+                    elo_extra += 1;
+                    true
+                }
+            }
+        };
+
+        if !ok {
+            mismatches.push(format!("  '{}': numi={:?}, elo='{}'", expr, numi, elo));
+        }
+    }
+
+    if !mismatches.is_empty() {
+        eprintln!(
+            "\n[{}] {} mismatches out of {}:",
+            name,
+            mismatches.len(),
+            expressions.len()
+        );
+        for m in &mismatches {
+            eprintln!("{}", m);
+        }
+    } else {
+        let extra = if elo_extra > 0 {
+            format!(" ({} elo-extra)", elo_extra)
+        } else {
+            String::new()
+        };
+        eprintln!(
+            "[{}] {}/{} passed{}",
+            name,
+            expressions.len(),
+            expressions.len(),
+            extra
+        );
+    }
+
+    assert!(
+        mismatches.is_empty(),
+        "{}: {} mismatches found (see stderr output)",
+        name,
+        mismatches.len()
+    );
+}
+
+#[test]
+#[ignore]
+fn fuzz_currency_conversions() {
+    let mut exprs = Vec::new();
+    let amounts = ["1", "50", "100", "1000"];
+    let conversions = [
+        ("$", "EUR"),
+        ("$", "GBP"),
+        ("$", "JPY"),
+        ("€", "USD"),
+        ("€", "GBP"),
+        ("£", "USD"),
+        ("£", "EUR"),
+    ];
+
+    for &amt in &amounts {
+        for &(sym, target) in &conversions {
+            exprs.push(format!("{}{} in {}", sym, amt, target));
+        }
+    }
+
+    // Code-based conversions
+    let code_conversions = [
+        ("100 AUD", "USD"),
+        ("100 CAD", "EUR"),
+        ("100 CHF", "USD"),
+        ("1000 JPY", "USD"),
+        ("100 SEK", "EUR"),
+    ];
+    for &(from, to) in &code_conversions {
+        exprs.push(format!("{} in {}", from, to));
+    }
+
+    // Same-currency arithmetic
+    exprs.push("$100 + $200".to_string());
+    exprs.push("$100 * 2".to_string());
+    exprs.push("$100 + 10%".to_string());
+    exprs.push("$100 - 20%".to_string());
+
+    // Cross-currency arithmetic
+    exprs.push("$100 + €50".to_string());
+
+    fuzz_currency_inner("currency_conversions", &exprs);
 }

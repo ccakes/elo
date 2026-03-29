@@ -1,9 +1,11 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use chrono::{Duration, Local, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use chrono_tz::Tz;
 
 use crate::ast::*;
+use crate::rates::RateStore;
 use crate::value::Value;
 
 /// Evaluation context holding variables, previous results, etc.
@@ -13,6 +15,8 @@ pub struct EvalContext {
     pub block_results: Vec<f64>,
     /// Previous line result (for prev)
     pub prev_result: Option<Value>,
+    /// Exchange rates for currency conversion
+    pub rates: Option<Arc<RateStore>>,
 }
 
 impl EvalContext {
@@ -21,6 +25,16 @@ impl EvalContext {
             variables: HashMap::new(),
             block_results: Vec::new(),
             prev_result: None,
+            rates: None,
+        }
+    }
+
+    pub fn with_rates(rates: Option<Arc<RateStore>>) -> Self {
+        Self {
+            variables: HashMap::new(),
+            block_results: Vec::new(),
+            prev_result: None,
+            rates,
         }
     }
 
@@ -311,6 +325,21 @@ fn eval_binary(op: BinOp, left: &Expr, right: &Expr, ctx: &EvalContext) -> Value
         return Value::WithUnit(result, unit_b.clone());
     }
 
+    // Cross-currency arithmetic: convert left to right's currency (numi behavior)
+    if matches!(op, BinOp::Add | BinOp::Sub)
+        && let (Value::Currency(a, code_a), Value::Currency(b, code_b)) = (&lv, &rv)
+        && code_a != code_b
+        && let Some(ref rates) = ctx.rates
+        && let Some(a_converted) = rates.convert(*a, code_a, code_b)
+    {
+        let result = match op {
+            BinOp::Add => a_converted + b,
+            BinOp::Sub => a_converted - b,
+            _ => unreachable!(),
+        };
+        return Value::Currency(result, code_b.clone());
+    }
+
     match (lv.as_number(), rv.as_number()) {
         (Some(a), Some(b)) => {
             let result = match op {
@@ -568,10 +597,24 @@ fn eval_conversion(expr: &Expr, target: &str, ctx: &EvalContext) -> Value {
             }
             Value::Error(format!("cannot convert {} to {}", from_unit, target))
         }
-        Value::Currency(_n, from_code) => Value::Error(format!(
-            "currency conversion {} to {} requires rates",
-            from_code, target
-        )),
+        Value::Currency(n, from_code) => {
+            let to_code = normalize_currency(target);
+            if from_code == &to_code {
+                return val;
+            }
+            if !is_currency_unit(target) {
+                return Value::Error(format!("cannot convert {} to {}", from_code, target));
+            }
+            if let Some(ref rates) = ctx.rates
+                && let Some(result) = rates.convert(*n, from_code, &to_code)
+            {
+                return Value::Currency(result, to_code);
+            }
+            Value::Error(format!(
+                "currency conversion {} to {} requires rates",
+                from_code, to_code
+            ))
+        }
         Value::Number(n) => {
             if is_currency_unit(target) {
                 Value::Currency(*n, normalize_currency(target))

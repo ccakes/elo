@@ -1,6 +1,9 @@
+use std::sync::Arc;
+
 use crate::eval::{EvalContext, eval_line};
 use crate::formatter::format_value;
 use crate::parser::Parser;
+use crate::rates::RateStore;
 use crate::value::Value;
 
 /// A session represents a multi-line document evaluation
@@ -20,6 +23,12 @@ impl Session {
     pub fn new() -> Self {
         Self {
             ctx: EvalContext::new(),
+        }
+    }
+
+    pub fn with_rates(rates: Option<Arc<RateStore>>) -> Self {
+        Self {
+            ctx: EvalContext::with_rates(rates),
         }
     }
 

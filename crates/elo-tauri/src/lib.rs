@@ -1,11 +1,12 @@
-use elo_core::Session;
+use elo_core::{RateStore, Session};
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::State;
 
 /// Shared session state managed by Tauri
 struct AppState {
     session: Mutex<Session>,
+    rates: Option<Arc<RateStore>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -21,7 +22,7 @@ struct LineResult {
 fn evaluate_document(text: &str, state: State<AppState>) -> Vec<LineResult> {
     let mut session = state.session.lock().unwrap();
     // Reset session for fresh evaluation
-    *session = Session::new();
+    *session = Session::with_rates(state.rates.clone());
 
     text.lines()
         .map(|line| {
@@ -53,14 +54,16 @@ fn evaluate_line(line: &str, state: State<AppState>) -> LineResult {
 #[tauri::command]
 fn reset_session(state: State<AppState>) {
     let mut session = state.session.lock().unwrap();
-    *session = Session::new();
+    *session = Session::with_rates(state.rates.clone());
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let rates = RateStore::load();
     tauri::Builder::default()
         .manage(AppState {
-            session: Mutex::new(Session::new()),
+            session: Mutex::new(Session::with_rates(rates.clone())),
+            rates,
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())

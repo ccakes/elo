@@ -1,4 +1,4 @@
-use elo_core::Session;
+use elo_core::{RateStore, Session};
 use std::io::{self, BufRead};
 
 fn main() {
@@ -30,10 +30,12 @@ fn main() {
         None => elo_core::Locale::from_system(),
     };
 
+    let rates = RateStore::load();
+
     if !expr_args.is_empty() {
         // Single expression mode
         let expr = expr_args.join(" ");
-        let mut session = Session::new();
+        let mut session = Session::with_rates(rates);
         let result = session.eval_line(&expr);
         if !result.value.is_empty() {
             println!("{}", result.display);
@@ -41,7 +43,7 @@ fn main() {
     } else {
         // Interactive / pipe mode
         let stdin = io::stdin();
-        let mut session = Session::new();
+        let mut session = Session::with_rates(rates);
         for line in stdin.lock().lines() {
             match line {
                 Ok(input) => {

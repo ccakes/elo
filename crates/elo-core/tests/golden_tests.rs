@@ -1,4 +1,4 @@
-use elo_core::Session;
+use elo_core::{RateStore, Session};
 
 /// Normalize a number string for comparison: strip trailing zeros, trailing dot
 fn normalize_number(s: &str) -> String {
@@ -62,6 +62,47 @@ fn results_match(expected: &str, actual: &str) -> bool {
     false
 }
 
+/// Check if a CURRENCY result matches: correct symbol/code prefix, numeric value present.
+fn currency_result_matches(expected_currency: &str, actual: &str) -> bool {
+    let actual = actual.trim();
+    if actual.is_empty() || actual == "error" || actual.contains("requires rates") {
+        return false;
+    }
+
+    // Expected format: "CURRENCY EUR" means output should be "€ <number>" or "<number> EUR"
+    // Check that the output contains the expected currency symbol or code
+    let symbol = currency_code_to_symbol(expected_currency);
+
+    let has_currency = actual.starts_with(&format!("{} ", symbol))
+        || actual.starts_with(&format!("{} ", expected_currency))
+        || actual.ends_with(&format!(" {}", expected_currency));
+
+    if !has_currency {
+        return false;
+    }
+
+    // Verify there's a numeric value
+    let num_str = actual
+        .replace(symbol, "")
+        .replace(expected_currency, "")
+        .trim()
+        .to_string();
+    num_str.parse::<f64>().is_ok()
+}
+
+fn currency_code_to_symbol(code: &str) -> &str {
+    match code {
+        "USD" => "$",
+        "EUR" => "€",
+        "GBP" => "£",
+        "JPY" | "CNY" => "¥",
+        "INR" => "₹",
+        "KRW" => "₩",
+        "BTC" => "₿",
+        _ => code,
+    }
+}
+
 fn extract_number(s: &str) -> String {
     let s = s.trim();
     let mut end = 0;
@@ -83,6 +124,8 @@ fn extract_suffix(s: &str) -> String {
 #[test]
 fn test_golden_corpus() {
     let corpus = include_str!("../../../tests/goldens/expressions.txt");
+
+    let rates = RateStore::load();
 
     let mut passed = 0;
     let mut failed = 0;
@@ -110,7 +153,30 @@ fn test_golden_corpus() {
             continue;
         }
 
-        let mut session = Session::new();
+        // Handle CURRENCY tests: format-only check (rates change over time)
+        if expected.starts_with("CURRENCY ") {
+            if rates.is_none() {
+                skipped += 1;
+                continue;
+            }
+            let expected_currency = expected.strip_prefix("CURRENCY ").unwrap().trim();
+            let mut session = Session::with_rates(rates.clone());
+            let result = session.eval_line(input);
+            let actual = result.display.trim().to_string();
+
+            if currency_result_matches(expected_currency, &actual) {
+                passed += 1;
+            } else {
+                failed += 1;
+                failures.push(format!(
+                    "  '{}': expected currency {}, got '{}'",
+                    input, expected_currency, actual
+                ));
+            }
+            continue;
+        }
+
+        let mut session = Session::with_rates(rates.clone());
         let result = session.eval_line(input);
         let actual = result.display.trim().to_string();
 
@@ -159,7 +225,7 @@ fn test_golden_corpus() {
     }
 
     eprintln!(
-        "\nGolden tests: {} passed, {} failed, {} skipped (time-sensitive)",
+        "\nGolden tests: {} passed, {} failed, {} skipped (time-sensitive/no-rates)",
         passed, failed, skipped
     );
 

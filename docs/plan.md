@@ -52,8 +52,8 @@
 - [x] IANA timezone support — full chrono-tz database, plus 90+ city/abbreviation aliases
 - [x] `fromunix()` — pure Rust via chrono `Utc.timestamp_opt()`
 - [x] Currency parsing — `$100`, `€50`, `100 USD` (parser recognizes, evaluator attaches codes)
-- [ ] Currency conversions — `100 USD in EUR` (requires rate provider) *excluded per user request*
-- [ ] Rate provider abstraction — abstract interface, mock for tests, live provider for app *excluded per user request*
+- [x] Currency conversions — `100 USD in EUR`, `$100 in GBP`, cross-currency arithmetic (`$100 + €50`)
+- [x] Rate provider — Numi API (`s.numi.app/rates` + `/crypto`), XDG cache with 3h TTL, conditional requests, moneta currency tracking
 - [x] Locale module — `Locale` struct with `en`, `de`, `fr`, `c` presets, system detection, `from_identifier()`
 - [x] Locale-sensitive number formatting — decimal separator, thousands grouping
 - [x] Locale override in CLI — `--locale` / `-l` flag
@@ -111,11 +111,11 @@
 
 ## Current Status
 
-**131 test functions: 92 unit + 1 golden (107 assertions) + 12 property + 4 compat-internal + 14 oracle + 8 differential fuzz. All passing. Zero warnings.**
+**137 test functions: 98 unit + 1 golden (117 assertions) + 12 property + 4 compat-internal + 14 oracle + 9 differential fuzz. All passing. Zero warnings.**
 
-**114/114 expressions match numi-cli semantically (0 real mismatches).**
+**152/152 expressions match numi-cli semantically (0 real mismatches). Includes 38 currency conversion comparisons.**
 
-Milestones 1-6 are substantially complete. The Tauri desktop app (M5) has a working editor with live evaluation, file operations, and result gutter. Remaining items: system tray icon, preferences UI, window state persistence, multiple notes, CI pipeline.
+Milestones 1-6 are substantially complete. Currency conversions (M4) are fully implemented with live rates from Numi API, XDG-compliant caching, and moneta currency tracking. The Tauri desktop app (M5) has a working editor with live evaluation, file operations, and result gutter. Remaining items: system tray icon, preferences UI, window state persistence, multiple notes, CI pipeline.
 
 ### How to run
 

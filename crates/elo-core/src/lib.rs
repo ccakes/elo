@@ -4,9 +4,11 @@ pub mod formatter;
 pub mod lexer;
 pub mod locale;
 pub mod parser;
+pub mod rates;
 pub mod session;
 pub mod value;
 
 pub use locale::Locale;
+pub use rates::RateStore;
 pub use session::Session;
 pub use value::Value;

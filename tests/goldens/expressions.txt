@@ -111,3 +111,13 @@ Total: 100\t100\tstructure,label
 1\t1\tedge
 -1\t-1\tedge
 1 / 0\terror\tedge,error
+$100 in EUR	CURRENCY EUR	currency
+€50 in USD	CURRENCY USD	currency
+£100 in JPY	CURRENCY JPY	currency
+100 AUD in USD	CURRENCY USD	currency
+1 BTC in USD	CURRENCY USD	currency,crypto
+$100 + €50	CURRENCY EUR	currency,cross
+$100 + $200	$ 300	currency,same
+$100 * 2	$ 200	currency,arithmetic
+$100 + 10%	$ 110	currency,percent
+$100 - 20%	$ 80	currency,percent
