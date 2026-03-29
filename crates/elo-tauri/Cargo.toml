@@ -1,6 +1,6 @@
 [package]
 name = "elo-tauri"
-version = "0.2.0"
+version = "0.2.1"
 description = "Elo — a Numi-compatible calculator"
 edition = "2021"
 

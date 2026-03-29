@@ -137,6 +137,7 @@ impl Parser {
     }
 
     /// Parse conversion: expr (in|into|as|to) target
+    /// Target may be multi-word (e.g. "New York", "Los Angeles", "Hong Kong")
     fn parse_conversion(&mut self) -> Expr {
         let expr = self.parse_percent_ops();
 
@@ -144,9 +145,28 @@ impl Parser {
             && is_conversion_word(word)
         {
             self.advance();
-            if let Some(Token::Ident(ref target)) = self.peek() {
-                let target = target.clone();
+            if let Some(Token::Ident(ref first)) = self.peek() {
+                let mut target = first.clone();
                 self.advance();
+
+                // Greedily consume additional plain identifiers that aren't
+                // operator keywords (supports multi-word targets like "New York")
+                while let Some(Token::Ident(ref next)) = self.peek() {
+                    if is_conversion_word(next)
+                        || is_add_word(next)
+                        || is_sub_word(next)
+                        || is_mul_word(next)
+                        || is_div_word(next)
+                        || is_session_token(next)
+                        || is_date_keyword(next)
+                    {
+                        break;
+                    }
+                    target.push(' ');
+                    target.push_str(next);
+                    self.advance();
+                }
+
                 return Expr::Conversion {
                     expr: Box::new(expr),
                     target,
