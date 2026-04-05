@@ -20,7 +20,9 @@
         </div>
       </div>
       <div id="editor-container">
-        <textarea id="editor" spellcheck="false" placeholder="Start typing expressions...
+        <div id="editor-wrapper">
+          <pre id="editor-highlight" aria-hidden="true"></pre>
+          <textarea id="editor" spellcheck="false" placeholder="Start typing expressions...
 
 Examples:
   2 + 3 * 4
@@ -32,6 +34,7 @@ Examples:
 
 Use # for headers, // for comments
 Label: expression"></textarea>
+        </div>
         <div id="results"></div>
       </div>
       <div id="statusbar">

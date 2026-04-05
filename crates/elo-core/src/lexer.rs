@@ -544,4 +544,20 @@ mod tests {
         let toks = tokens("1,000,000");
         assert_eq!(toks, vec![Token::Number(1_000_000.0)]);
     }
+
+    #[test]
+    fn test_list_text_tokenizes_normally() {
+        // "- groceries" tokenizes as Minus + Ident (list handling is in Session)
+        let toks = tokens("- groceries");
+        assert_eq!(
+            toks,
+            vec![Token::Minus, Token::Ident("groceries".to_string())]
+        );
+    }
+
+    #[test]
+    fn test_star_text_tokenizes_normally() {
+        let toks = tokens("* TODO");
+        assert_eq!(toks, vec![Token::Star, Token::Ident("TODO".to_string())]);
+    }
 }

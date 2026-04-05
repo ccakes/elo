@@ -94,10 +94,42 @@ html, body {
   position: relative;
 }
 
-#editor {
+#editor-wrapper {
   flex: 1;
-  background: var(--bg);
+  position: relative;
+  overflow: hidden;
+}
+
+#editor-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  border: none;
+  padding: 16px 20px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.6;
+  tab-size: 2;
   color: var(--text);
+  background: var(--bg);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+#editor {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text);
   border: none;
   outline: none;
   resize: none;
@@ -107,7 +139,15 @@ html, body {
   line-height: 1.6;
   tab-size: 2;
   overflow-y: auto;
+  overflow-wrap: break-word;
   user-select: text;
+  z-index: 1;
+  font-synthesis: none;
+}
+
+#editor::selection {
+  background: rgba(137, 180, 250, 0.3);
+  color: transparent;
 }
 
 #editor::placeholder {
@@ -131,6 +171,18 @@ html, body {
 #editor::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-hover);
 }
+
+/* Markdown highlight styles */
+.md-hash { color: var(--text-muted); }
+.md-header { color: var(--text-header); font-weight: 700; }
+.md-comment { color: var(--text-comment); font-style: italic; }
+.md-list-marker { color: var(--accent); }
+.md-bold { font-weight: 700; }
+.md-italic { font-style: italic; }
+.md-underline { text-decoration: underline; text-underline-offset: 2px; }
+.md-inline-code { background: var(--bg-surface); border-radius: 3px; }
+.md-code-fence { color: var(--text-muted); }
+.md-code-block { color: var(--text-muted); }
 
 /* Results gutter */
 #results {

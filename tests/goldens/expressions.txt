@@ -105,6 +105,8 @@ time in Europe/London\tDATETIME\ttimezone
 time in Asia/Tokyo\tDATETIME\ttimezone
 # Header\t\tstructure,header
 // comment\t\tstructure,comment
+- groceries\t\tstructure,list
+* TODO\t\tstructure,list
 Label: 5 + 5\t10\tstructure,label
 Total: 100\t100\tstructure,label
 0\t0\tedge

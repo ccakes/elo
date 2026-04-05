@@ -8,6 +8,7 @@ interface LineResult {
 }
 
 let editor: HTMLTextAreaElement;
+let highlightEl: HTMLElement;
 let resultsEl: HTMLElement;
 let statusLeft: HTMLElement;
 let statusRight: HTMLElement;
@@ -47,6 +48,8 @@ function renderResults(results: LineResult[]) {
         html += `<div class="result-line header">${escapeHtml(label)}</div>`;
       } else if (inputLine.trimStart().startsWith("//")) {
         html += `<div class="result-line comment">comment</div>`;
+      } else if (inputLine.trimStart().match(/^[-*]\s/)) {
+        html += `<div class="result-line empty">&nbsp;</div>`;
       } else {
         html += `<div class="result-line empty">&nbsp;</div>`;
       }
@@ -89,9 +92,86 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-// Sync scroll between editor and results
+// --- Markdown highlighting for the editor overlay ---
+
+function updateHighlight() {
+  highlightEl.innerHTML = highlightMarkdown(editor.value);
+}
+
+function highlightMarkdown(text: string): string {
+  const lines = text.split("\n");
+  let inCodeFence = false;
+  const result: string[] = [];
+
+  for (const line of lines) {
+    const escaped = escapeHtml(line);
+    const trimmed = escaped.trimStart();
+
+    // Code fence toggle
+    if (trimmed.startsWith("```")) {
+      inCodeFence = !inCodeFence;
+      result.push(`<span class="md-code-fence">${escaped}</span>`);
+      continue;
+    }
+
+    // Lines inside code fences
+    if (inCodeFence) {
+      result.push(`<span class="md-code-block">${escaped}</span>`);
+      continue;
+    }
+
+    // Headers
+    const headerMatch = escaped.match(/^(#{1,3}\s)(.*)/);
+    if (headerMatch) {
+      result.push(
+        `<span class="md-hash">${headerMatch[1]}</span><span class="md-header">${headerMatch[2]}</span>`,
+      );
+      continue;
+    }
+
+    // Comments
+    if (trimmed.startsWith("//")) {
+      result.push(`<span class="md-comment">${escaped}</span>`);
+      continue;
+    }
+
+    // List items: marker styled, rest gets inline formatting
+    const listMatch = escaped.match(/^(\s*)([-*]\s)(.*)/);
+    if (listMatch && listMatch[3].match(/^[A-Za-z\u00C0-\u024F]/)) {
+      result.push(
+        `${listMatch[1]}<span class="md-list-marker">${listMatch[2]}</span>${applyInlineFormatting(listMatch[3])}`,
+      );
+      continue;
+    }
+
+    // Regular line with inline formatting
+    result.push(applyInlineFormatting(escaped));
+  }
+
+  return result.join("\n") + "\n";
+}
+
+function applyInlineFormatting(escaped: string): string {
+  // Single-pass regex matching inline code, bold, underline, italic
+  // Order matters: longer delimiters first to avoid partial matches
+  return escaped.replace(
+    /(`[^`]+`)|(\*\*[^*]+\*\*)|(__[^_]+__)|(\*[^*]+\*)|(_[^_]+_)/g,
+    (match, code, bold, underline, italicStar, italicUnderscore) => {
+      if (code) return `<span class="md-inline-code">${match}</span>`;
+      if (bold) return `<span class="md-bold">${match}</span>`;
+      if (underline) return `<span class="md-underline">${match}</span>`;
+      if (italicStar) return `<span class="md-italic">${match}</span>`;
+      if (italicUnderscore) return `<span class="md-italic">${match}</span>`;
+      return match;
+    },
+  );
+}
+
+// Sync scroll between editor, highlight, and results
 function syncScroll() {
   resultsEl.scrollTop = editor.scrollTop;
+  highlightEl.scrollTop = editor.scrollTop;
+  highlightEl.scrollLeft = editor.scrollLeft;
 }
 
 // Copy to clipboard with toast
@@ -142,6 +222,7 @@ async function newDocument() {
   currentFilePath = null;
   isDirty = false;
   document.title = "Elo";
+  updateHighlight();
   evaluateDocument();
 }
 
@@ -161,6 +242,7 @@ async function openDocument() {
       currentFilePath = path as string;
       isDirty = false;
       document.title = `Elo — ${fileName(currentFilePath)}`;
+      updateHighlight();
       evaluateDocument();
     }
   } catch (e) {
@@ -176,9 +258,7 @@ async function saveDocument() {
     let path = currentFilePath;
     if (!path) {
       const chosen = await save({
-        filters: [
-          { name: "Elo Notes", extensions: ["elo", "txt"] },
-        ],
+        filters: [{ name: "Elo Notes", extensions: ["elo", "txt"] }],
         defaultPath: "untitled.elo",
       });
       if (!chosen) return;
@@ -259,12 +339,14 @@ function handleKeyboard(e: KeyboardEvent) {
 // Init
 window.addEventListener("DOMContentLoaded", () => {
   editor = document.getElementById("editor") as HTMLTextAreaElement;
+  highlightEl = document.getElementById("editor-highlight") as HTMLElement;
   resultsEl = document.getElementById("results") as HTMLElement;
   statusLeft = document.getElementById("status-left") as HTMLElement;
   statusRight = document.getElementById("status-right") as HTMLElement;
 
   editor.addEventListener("input", () => {
     isDirty = true;
+    updateHighlight();
     scheduleEval();
   });
 
@@ -274,9 +356,14 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-new")!.addEventListener("click", newDocument);
   document.getElementById("btn-open")!.addEventListener("click", openDocument);
   document.getElementById("btn-save")!.addEventListener("click", saveDocument);
-  document.getElementById("btn-export")!.addEventListener("click", exportDocument);
-  document.getElementById("btn-copy-all")!.addEventListener("click", copyAllResults);
+  document
+    .getElementById("btn-export")!
+    .addEventListener("click", exportDocument);
+  document
+    .getElementById("btn-copy-all")!
+    .addEventListener("click", copyAllResults);
 
-  // Initial evaluation
+  // Initial highlight and evaluation
+  updateHighlight();
   evaluateDocument();
 });
