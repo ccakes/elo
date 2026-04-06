@@ -5,6 +5,7 @@ interface LineResult {
   display: string;
   is_empty: boolean;
   is_error: boolean;
+  error: string | null;
 }
 
 let editor: HTMLTextAreaElement;
@@ -54,7 +55,8 @@ function renderResults(results: LineResult[]) {
         html += `<div class="result-line empty">&nbsp;</div>`;
       }
     } else if (r.is_error) {
-      html += `<div class="result-line error" title="${escapeHtml(r.display)}">${escapeHtml(r.display)}</div>`;
+      const tooltip = r.error ? escapeHtml(r.error) : escapeHtml(r.display);
+      html += `<div class="result-line error" title="${tooltip}">${escapeHtml(r.display)}</div>`;
     } else {
       const cls = classifyResult(r.display, inputLine);
       html += `<div class="result-line ${cls}" data-value="${escapeHtml(r.display)}" title="Click to copy">${escapeHtml(r.display)}</div>`;

@@ -527,8 +527,8 @@ impl Parser {
                 }
                 Some(Token::LParen) => {
                     // Implicit multiplication: expr(...)
-                    // Only if previous expr is a number or identifier
-                    if matches!(expr, Expr::Number(_) | Expr::Ident(_) | Expr::Scaled(_, _)) {
+                    // Only if previous expr is a number or scaled value
+                    if matches!(expr, Expr::Number(_) | Expr::Scaled(_, _)) {
                         let inner = self.parse_primary();
                         expr = Expr::ImplicitMul(Box::new(expr), Box::new(inner));
                     } else {
@@ -660,7 +660,6 @@ impl Parser {
                 // Check if it's a function call: name(args)
                 if self.pos + 1 < self.tokens.len()
                     && let Token::LParen = &self.tokens[self.pos + 1].token
-                    && elo_data::functions::is_builtin_function(&name)
                 {
                     return self.parse_func_call(&name);
                 }

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::ast::{Expr, Line};
 use crate::eval::{EvalContext, eval_line};
 use crate::formatter::format_value;
 use crate::parser::Parser;
@@ -68,12 +69,23 @@ impl Session {
             if after_marker.is_empty() {
                 return empty();
             }
-            // Text starting with a letter: try to evaluate, fall back to empty on error
-            if after_marker.starts_with(|c: char| c.is_alphabetic()) {
+            // Non-digit content: try to evaluate, fall back to empty on error.
+            // Digits fall through so "- 5" still parses as negative 5.
+            if after_marker.starts_with(|c: char| !c.is_ascii_digit()) {
                 let mut parser = Parser::new(after_marker);
                 let line = parser.parse_line();
+                // Only swallow errors for bare identifiers (plain text like "groceries").
+                // Expression-like structures (function calls, operators, etc.) should
+                // propagate their errors so the user gets useful feedback.
+                let is_bare_text = matches!(
+                    &line,
+                    Line::Expression {
+                        expr: Expr::Ident(_),
+                        ..
+                    }
+                );
                 let value = eval_line(&line, &mut self.ctx);
-                if value.is_error() {
+                if value.is_error() && is_bare_text {
                     return empty();
                 }
                 let display = format_value(&value);
@@ -286,5 +298,21 @@ mod tests {
         assert!(results[3].value.is_empty()); // ```
         assert_eq!(results[4].display, "20");
         assert_eq!(results[5].display, "30"); // sum of 10 + 20
+    }
+
+    #[test]
+    fn test_session_list_item_inline_code() {
+        let mut session = Session::new();
+        // "- `code fence` list item" should be empty, not an error
+        let result = session.eval_line("- `code fence` list item");
+        assert!(result.value.is_empty());
+    }
+
+    #[test]
+    fn test_session_list_item_inline_code_after_text() {
+        let mut session = Session::new();
+        // "- foo `code fence`" should also be empty (text with inline code)
+        let result = session.eval_line("- foo `code fence`");
+        assert!(result.value.is_empty());
     }
 }

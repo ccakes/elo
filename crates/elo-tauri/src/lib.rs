@@ -1,4 +1,4 @@
-use elo_core::{RateStore, Session};
+use elo_core::{RateStore, Session, Value};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use tauri::State;
@@ -15,6 +15,7 @@ struct LineResult {
     display: String,
     is_empty: bool,
     is_error: bool,
+    error: Option<String>,
 }
 
 /// Evaluate an entire document (multi-line) and return results for each line
@@ -27,11 +28,16 @@ fn evaluate_document(text: &str, state: State<AppState>) -> Vec<LineResult> {
     text.lines()
         .map(|line| {
             let result = session.eval_line(line);
+            let error = match &result.value {
+                Value::Error(msg) => Some(msg.clone()),
+                _ => None,
+            };
             LineResult {
                 input: line.to_string(),
                 display: result.display,
                 is_empty: result.value.is_empty(),
                 is_error: result.value.is_error(),
+                error,
             }
         })
         .collect()
@@ -42,11 +48,16 @@ fn evaluate_document(text: &str, state: State<AppState>) -> Vec<LineResult> {
 fn evaluate_line(line: &str, state: State<AppState>) -> LineResult {
     let mut session = state.session.lock().unwrap();
     let result = session.eval_line(line);
+    let error = match &result.value {
+        Value::Error(msg) => Some(msg.clone()),
+        _ => None,
+    };
     LineResult {
         input: line.to_string(),
         display: result.display,
         is_empty: result.value.is_empty(),
         is_error: result.value.is_error(),
+        error,
     }
 }
 
