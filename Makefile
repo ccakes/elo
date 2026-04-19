@@ -9,9 +9,10 @@ build-cli:
 
 build-macos:
 	mkdir -p build
-	cd elo-tauri && pnpm install && cd .. && cargo tauri build --bundles app
-	cp -r target/release/bundle/macos/Elo.app build/
-	cp target/release/bundle/dmg/*.dmg build/ 2>/dev/null || true
+	rustup target add aarch64-apple-darwin x86_64-apple-darwin
+	cd elo-tauri && pnpm install && cd .. && cargo tauri build --target universal-apple-darwin --bundles app,dmg
+	cp -r target/universal-apple-darwin/release/bundle/macos/Elo.app build/
+	cp target/universal-apple-darwin/release/bundle/dmg/*.dmg build/
 
 build-linux:
 	mkdir -p build

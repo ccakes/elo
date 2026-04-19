@@ -24,6 +24,24 @@ Elo is a notepad-style calculator for natural math expressions. Type plain-Engli
 - **Locale support** — locale-sensitive number formatting (`en`, `de`, `fr`)
 - **File operations** — open, save, and export notes as `.elo`, `.txt`, or `.md`
 
+## Install
+
+### macOS (Homebrew)
+
+```sh
+brew install --cask ccakes/elo/elo
+```
+
+This taps `ccakes/homebrew-elo` and installs the latest universal `Elo.app` into `/Applications`.
+
+> The app isn't yet notarized, so on first launch macOS will complain. Right-click `Elo.app` → **Open** to bypass Gatekeeper once.
+
+### Tap setup (one-time, maintainer only)
+
+1. Create a public repo `ccakes/homebrew-elo` with a `Casks/` directory.
+2. Copy `packaging/homebrew/elo.rb` from this repo into `Casks/elo.rb` in the tap.
+3. In this repo's settings, add a secret `HOMEBREW_TAP_TOKEN` — a fine-grained PAT with `contents: write` on `ccakes/homebrew-elo`. The release workflow uses it to bump the cask automatically on every `v*` tag.
+
 ## Prerequisites
 
 - [Rust](https://rustup.rs/) (2024 edition)
