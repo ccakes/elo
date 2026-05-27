@@ -72,7 +72,11 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v5
         with:
-          version: latest
+          # Pinned: pnpm 10+ rejects ignored build scripts (esbuild postinstall).
+          # Settings location for the allowlist has shifted between 10 and 11
+          # (package.json "pnpm" field deprecated, pnpm-workspace.yaml not
+          # honored in our layout). Stay on 9 until that stabilizes.
+          version: 9
 
       - name: Install frontend deps
         working-directory: elo-tauri
@@ -104,7 +108,11 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v5
         with:
-          version: latest
+          # Pinned: pnpm 10+ rejects ignored build scripts (esbuild postinstall).
+          # Settings location for the allowlist has shifted between 10 and 11
+          # (package.json "pnpm" field deprecated, pnpm-workspace.yaml not
+          # honored in our layout). Stay on 9 until that stabilizes.
+          version: 9
 
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version "^2"
@@ -151,7 +159,11 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v5
         with:
-          version: latest
+          # Pinned: pnpm 10+ rejects ignored build scripts (esbuild postinstall).
+          # Settings location for the allowlist has shifted between 10 and 11
+          # (package.json "pnpm" field deprecated, pnpm-workspace.yaml not
+          # honored in our layout). Stay on 9 until that stabilizes.
+          version: 9
 
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version "^2"
