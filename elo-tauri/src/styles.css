@@ -41,6 +41,9 @@ html, body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  /* Clear the rounded corners / camera on landscape iOS */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* Toolbar */
@@ -53,6 +56,9 @@ html, body {
   background: var(--toolbar-bg);
   border-bottom: 1px solid var(--border);
   -webkit-app-region: drag;
+  /* Clear the notch / Dynamic Island in portrait */
+  padding-top: env(safe-area-inset-top);
+  box-sizing: content-box;
 }
 
 .app-title {
@@ -263,6 +269,9 @@ html, body {
   border-top: 1px solid var(--border);
   font-size: 11px;
   color: var(--text-muted);
+  /* Clear the home indicator in portrait */
+  padding-bottom: env(safe-area-inset-bottom);
+  box-sizing: content-box;
 }
 
 /* Copy toast */
@@ -286,4 +295,162 @@ html, body {
 .toast.show {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Modal (in-app iCloud open/save on iOS) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+}
+
+.modal-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-title {
+  padding: 14px 16px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-list {
+  overflow-y: auto;
+}
+
+.modal-empty {
+  padding: 20px 16px;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 13px;
+}
+
+.modal-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+
+.modal-item:hover,
+.modal-item:active {
+  background: var(--bg-hover);
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.modal-input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 16px; /* >=16px stops iOS Safari from zooming on focus */
+  padding: 10px 12px;
+  outline: none;
+}
+
+.modal-input:focus {
+  border-color: var(--accent);
+}
+
+.modal-form .modal-item {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-align: center;
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------------ */
+/* Portrait / narrow layout (phones).                                 */
+/* The editor takes the full width and each line's result floats as a */
+/* chip — right-aligned beside short lines, dropped below long ones.  */
+/* Positions are computed in main.ts (layoutPortraitResults); the CSS */
+/* here only establishes the overlay + chip box model.                */
+/* ------------------------------------------------------------------ */
+@media (orientation: portrait) and (max-width: 600px) {
+  /* Touch: drag regions are meaningless and bigger tap targets help. */
+  #toolbar,
+  .toolbar-actions {
+    -webkit-app-region: none;
+  }
+
+  .toolbar-actions button {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 13px;
+    padding: 6px 10px;
+  }
+
+  .app-title {
+    display: none; /* reclaim width for the action buttons */
+  }
+
+  /* Editor fills the width where the gutter used to be. */
+  #editor-wrapper {
+    flex: 1 1 100%;
+  }
+
+  /* The results gutter becomes a non-scrolling overlay; chips are */
+  /* absolutely positioned over the editor by JS. */
+  #results {
+    position: absolute;
+    inset: 0;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    background: transparent;
+    border-left: none;
+    overflow: hidden;
+    pointer-events: none; /* taps fall through to the editor */
+    z-index: 2;
+  }
+
+  .result-line {
+    position: absolute;
+    right: 20px; /* matches the editor's right padding */
+    height: 22.4px;
+    max-width: 60%;
+    text-align: right;
+    pointer-events: auto; /* but chips themselves stay tappable */
+    /* Solid background so a chip stays legible over editor text. */
+    background: var(--bg);
+    padding: 0 4px;
+    border-radius: 3px;
+  }
+
+  /* These rows only echo the input (or are blank) — hide them so the */
+  /* overlay shows computed results only. */
+  .result-line.empty,
+  .result-line.comment,
+  .result-line.header {
+    display: none;
+  }
 }

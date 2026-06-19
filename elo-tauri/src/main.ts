@@ -31,6 +31,7 @@ async function evaluateDocument() {
     const results: LineResult[] = await invoke("evaluate_document", { text });
     renderResults(results);
     updateStatus(text, results);
+    layoutPortraitResults();
   } catch (e) {
     console.error("Evaluation error:", e);
   }
@@ -152,7 +153,15 @@ function highlightMarkdown(text: string): string {
     result.push(applyInlineFormatting(escaped));
   }
 
-  return result.join("\n") + "\n";
+  // Wrap each logical line in a measurable span. Because #editor-highlight
+  // wraps text identically to the textarea, each .hl-line's offsetTop/
+  // offsetHeight is the true rendered position of that logical line
+  // (including soft-wrapping) — the primitive layoutPortraitResults() uses.
+  return (
+    result
+      .map((html, i) => `<span class="hl-line" data-line="${i}">${html}</span>`)
+      .join("\n") + "\n"
+  );
 }
 
 function applyInlineFormatting(escaped: string): string {
@@ -176,6 +185,82 @@ function syncScroll() {
   resultsEl.scrollTop = editor.scrollTop;
   highlightEl.scrollTop = editor.scrollTop;
   highlightEl.scrollLeft = editor.scrollLeft;
+  // In portrait the results gutter is a non-scrolling overlay; re-offset chips.
+  if (isPortrait()) layoutPortraitResults();
+}
+
+// --- Portrait floating-result layout (Option A) ---
+//
+// Keep matching the CSS media query in styles.css.
+function isPortrait(): boolean {
+  return window.matchMedia("(orientation: portrait) and (max-width: 600px)")
+    .matches;
+}
+
+// Reusable canvas for measuring rendered text width in the editor font.
+let measureCanvas: HTMLCanvasElement | null = null;
+let measureFont = "";
+
+function measureTextWidth(text: string): number {
+  if (!measureCanvas) measureCanvas = document.createElement("canvas");
+  const ctx = measureCanvas.getContext("2d");
+  if (!ctx) return 0;
+  if (!measureFont) {
+    const cs = getComputedStyle(editor);
+    measureFont = `${cs.fontSize} ${cs.fontFamily}`;
+  }
+  ctx.font = measureFont;
+  return ctx.measureText(text).width;
+}
+
+// Position each result chip relative to its logical line: right-aligned beside
+// short lines, dropped onto its own row beneath long lines (only when the next
+// line is blank, so it can't land on top of real text).
+//
+// NOTE: this is the v1 heuristic the IOS-PORT guide flags for Simulator tuning.
+// It is correct-by-construction (no overlap when dropped) but the "is the line
+// long enough to crowd the chip" threshold is the knob to turn against real
+// notes on a device.
+function layoutPortraitResults() {
+  if (!isPortrait()) {
+    // Landscape/desktop: clear any inline positioning we set previously.
+    resultsEl
+      .querySelectorAll<HTMLElement>(".result-line")
+      .forEach((el) => (el.style.top = ""));
+    return;
+  }
+
+  const spans = highlightEl.querySelectorAll<HTMLElement>(".hl-line");
+  const chips = resultsEl.querySelectorAll<HTMLElement>(".result-line");
+  const lines = editor.value.split("\n");
+  const scrollTop = editor.scrollTop;
+
+  // Width available for text before it would collide with a right chip.
+  // editor content width minus its horizontal padding.
+  const cs = getComputedStyle(editor);
+  const padX =
+    parseFloat(cs.paddingLeft || "0") + parseFloat(cs.paddingRight || "0");
+  const contentWidth = editor.clientWidth - padX;
+
+  spans.forEach((span, i) => {
+    const chip = chips[i];
+    if (!chip) return;
+
+    const chipWidth = chip.offsetWidth || 0;
+    const gap = 16;
+    const roomForText = contentWidth - chipWidth - gap;
+
+    const lineWidth = measureTextWidth(lines[i] ?? "");
+    const nextBlank = (lines[i + 1] ?? "").trim() === "";
+    // Drop below only when the line crowds the chip AND there's a blank line
+    // beneath to land in — otherwise keep it right-aligned on the line's row.
+    const dropBelow = lineWidth > roomForText && nextBlank;
+
+    const top = dropBelow
+      ? span.offsetTop + span.offsetHeight
+      : span.offsetTop;
+    chip.style.top = `${top - scrollTop}px`;
+  });
 }
 
 // Copy to clipboard with toast
@@ -230,13 +315,138 @@ async function newDocument() {
   evaluateDocument();
 }
 
+// --- Platform-aware document storage ---
+//
+// On iOS we route Open/Save through the app's iCloud Documents folder
+// (icloud_* commands in the Rust backend) and an in-app document list,
+// since the desktop file dialog + absolute paths don't apply on sandboxed iOS.
+function isIOS(): boolean {
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    // iPadOS 13+ reports as desktop Safari; disambiguate by touch.
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+// Lightweight modal: renders a titled panel with arbitrary children and a
+// cancel affordance. Returns a teardown function.
+function showModal(title: string, build: (close: () => void) => HTMLElement) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  const panel = document.createElement("div");
+  panel.className = "modal-panel";
+  const heading = document.createElement("div");
+  heading.className = "modal-title";
+  heading.textContent = title;
+  panel.appendChild(heading);
+  const close = () => overlay.remove();
+  panel.appendChild(build(close));
+  overlay.appendChild(panel);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) close();
+  });
+  document.body.appendChild(overlay);
+  return close;
+}
+
+async function openDocumentIOS() {
+  try {
+    const names: string[] = await invoke("icloud_list_documents");
+    showModal("Open from iCloud", (close) => {
+      const list = document.createElement("div");
+      list.className = "modal-list";
+      if (names.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "modal-empty";
+        empty.textContent = "No notes in iCloud yet.";
+        list.appendChild(empty);
+      }
+      for (const name of names) {
+        const item = document.createElement("button");
+        item.className = "modal-item";
+        item.textContent = name;
+        item.addEventListener("click", async () => {
+          try {
+            const content: string = await invoke("icloud_read_document", {
+              name,
+            });
+            editor.value = content;
+            currentFilePath = name;
+            isDirty = false;
+            document.title = `Elo — ${name}`;
+            updateHighlight();
+            evaluateDocument();
+          } catch (e) {
+            console.error("iCloud read error:", e);
+            showToast("Couldn't open");
+          }
+          close();
+        });
+        list.appendChild(item);
+      }
+      return list;
+    });
+  } catch (e) {
+    console.error("iCloud list error:", e);
+    showToast("iCloud unavailable");
+  }
+}
+
+async function saveDocumentIOS() {
+  const write = async (name: string) => {
+    if (!name.trim()) return;
+    // Default an extension so the file is recognised on re-list.
+    if (!/\.(elo|txt|md)$/.test(name)) name += ".md";
+    try {
+      await invoke("icloud_write_document", { name, contents: editor.value });
+      currentFilePath = name;
+      isDirty = false;
+      document.title = `Elo — ${name}`;
+      showToast("Saved!");
+    } catch (e) {
+      console.error("iCloud write error:", e);
+      showToast("Couldn't save");
+    }
+  };
+
+  if (currentFilePath) {
+    await write(currentFilePath);
+    return;
+  }
+
+  showModal("Save to iCloud", (close) => {
+    const form = document.createElement("form");
+    form.className = "modal-form";
+    const input = document.createElement("input");
+    input.className = "modal-input";
+    input.type = "text";
+    input.placeholder = "note name";
+    input.value = "untitled.md";
+    const ok = document.createElement("button");
+    ok.type = "submit";
+    ok.className = "modal-item";
+    ok.textContent = "Save";
+    form.appendChild(input);
+    form.appendChild(ok);
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = input.value;
+      close();
+      await write(name);
+    });
+    setTimeout(() => input.focus(), 0);
+    return form;
+  });
+}
+
 async function openDocument() {
+  if (isIOS()) return openDocumentIOS();
   try {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const { readTextFile } = await import("@tauri-apps/plugin-fs");
     const path = await open({
       filters: [
-        { name: "Elo Notes", extensions: ["elo", "txt", "md"] },
+        { name: "Elo Notes", extensions: ["md", "txt", "elo"] },
         { name: "All Files", extensions: ["*"] },
       ],
     });
@@ -255,6 +465,7 @@ async function openDocument() {
 }
 
 async function saveDocument() {
+  if (isIOS()) return saveDocumentIOS();
   try {
     const { save } = await import("@tauri-apps/plugin-dialog");
     const { writeTextFile } = await import("@tauri-apps/plugin-fs");
@@ -262,8 +473,8 @@ async function saveDocument() {
     let path = currentFilePath;
     if (!path) {
       const chosen = await save({
-        filters: [{ name: "Elo Notes", extensions: ["elo", "txt"] }],
-        defaultPath: "untitled.elo",
+        filters: [{ name: "Elo Notes", extensions: ["md", "txt", "elo"] }],
+        defaultPath: "untitled.md",
       });
       if (!chosen) return;
       path = chosen;
@@ -356,6 +567,15 @@ window.addEventListener("DOMContentLoaded", () => {
 
   editor.addEventListener("scroll", syncScroll);
   document.addEventListener("keydown", handleKeyboard);
+
+  // Re-lay-out floating results on geometry changes.
+  window.addEventListener("resize", layoutPortraitResults);
+  window.addEventListener("orientationchange", layoutPortraitResults);
+  // The on-screen keyboard resizes the visual viewport, not the layout
+  // viewport — track it so chips stay aligned and the caret stays visible.
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", layoutPortraitResults);
+  }
 
   document.getElementById("btn-new")!.addEventListener("click", newDocument);
   document.getElementById("btn-open")!.addEventListener("click", openDocument);

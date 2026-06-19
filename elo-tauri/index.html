@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="stylesheet" href="/src/styles.css" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0"
+    />
     <title>Elo</title>
     <script type="module" src="/src/main.ts" defer></script>
   </head>
@@ -22,7 +25,9 @@
       <div id="editor-container">
         <div id="editor-wrapper">
           <pre id="editor-highlight" aria-hidden="true"></pre>
-          <textarea id="editor" spellcheck="false" placeholder="Start typing expressions...
+          <textarea id="editor" spellcheck="false"
+          autocapitalize="off" autocorrect="off" autocomplete="off" inputmode="text"
+          placeholder="Start typing expressions...
 
 Examples:
   2 + 3 * 4
