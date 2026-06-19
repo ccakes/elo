@@ -70,7 +70,7 @@
 - [x] Tauri commands — `evaluate_document`, `evaluate_line`, `reset_session` bridging elo-core Session
 - [x] File operations — New (Cmd+N), Open (Cmd+O), Save (Cmd+S) via `tauri-plugin-dialog` + `tauri-plugin-fs`
 - [x] Export — plain text with right-aligned results, via save dialog
-- [x] Import — Open dialog with .elo/.txt/.md filters
+- [x] Import — Open dialog with .md/.txt/.elo filters (`.md` is the default save format)
 - [x] Copy result — click any result line to copy; Cmd+Shift+C copies all results
 - [x] Keyboard shortcuts — Cmd+N/O/S, Cmd+Shift+C
 - [x] Toolbar — New, Open, Save, Export, Copy Results buttons

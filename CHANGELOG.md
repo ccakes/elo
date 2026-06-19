@@ -4,6 +4,15 @@ All notable changes to Elo are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+- **iOS support.** Elo now builds and runs on iOS from the same Tauri project.
+  Includes safe-area handling, and iCloud Documents storage (save/load
+  notes from an "Elo" folder in the Files app).
+- Default save format is now Markdown (`.md`) across all platforms (macOS,
+  Linux, iOS). Existing `.elo` and `.txt` notes continue to open and list
+  without changes.
+
 ## [0.4.0] — 2026-06-27
 
 - Non-formula lines are treated as plain text instead of raising an error.

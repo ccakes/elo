@@ -22,7 +22,7 @@ Elo is a notepad-style calculator for natural math expressions. Type plain-Engli
 - **Labels and comments** — `# headers`, `// comments`, `Label: expr`
 - **Format conversions** — `as hex`, `as binary`, `as octal`, `in scientific`
 - **Locale support** — locale-sensitive number formatting (`en`, `de`, `fr`)
-- **File operations** — open, save, and export notes as `.elo`, `.txt`, or `.md`
+- **File operations** — save and export notes as Markdown (`.md`, the default), `.txt`, or the legacy `.elo`; all three open seamlessly
 
 ## Prerequisites
 
