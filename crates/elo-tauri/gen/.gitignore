@@ -1,0 +1,3 @@
+# Tauri codegen output — regenerated on every build, target-dependent.
+# The real ACL/policy lives in ../capabilities/*.json (committed).
+schemas/
