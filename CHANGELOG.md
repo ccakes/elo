@@ -6,6 +6,9 @@ All notable changes to Elo are documented here. The format is based on
 
 ## [Unreleased]
 
+- New app icon: a typed "E" mark resolving to a result row, rendered across
+  all platforms (macOS `.icns`, Linux/Windows PNGs and `.ico`, and the iOS
+  AppIcon set).
 - **iOS support.** Elo now builds and runs on iOS from the same Tauri project.
   Includes safe-area handling, and iCloud Documents storage (save/load
   notes from an "Elo" folder in the Files app).
