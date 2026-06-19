@@ -10,6 +10,7 @@
 #   - Cargo.toml          [workspace.package] version
 #   - tauri.conf.json     bundle version
 #   - package.json        frontend version
+#   - PKGBUILD            pkgver (Arch package; source/sha derive from it)
 #   - Cargo.lock          every resolved elo-* crate version
 # The Cargo.lock check is the catch-all: it reflects an independent version pin
 # in a member crate (e.g. crates/elo-tauri not inheriting the workspace version)
@@ -43,6 +44,10 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 	pkg_ver="$(git show "${commit}:elo-tauri/package.json" \
 		| sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
 
+	# pkgver=x.y.z from the Arch PKGBUILD at the tagged commit
+	pkgbuild_ver="$(git show "${commit}:PKGBUILD" \
+		| sed -n 's/^pkgver[[:space:]]*=[[:space:]]*\(.*\)/\1/p' | head -n1)"
+
 	# Resolved version of every elo-* crate from Cargo.lock at the tagged commit,
 	# as "Cargo.lock[<crate>]=<version>" lines.
 	lock_pairs="$(git show "${commit}:Cargo.lock" \
@@ -69,6 +74,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 		Cargo.toml=${cargo_ver}
 		tauri.conf.json=${tauri_ver}
 		package.json=${pkg_ver}
+		PKGBUILD=${pkgbuild_ver}
 		${lock_pairs}
 	EOF
 
