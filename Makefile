@@ -1,4 +1,9 @@
-.PHONY: build build-cli build-macos build-linux test clean
+.PHONY: setup build build-cli build-macos build-linux test clean
+
+# Enable the repo's version-controlled git hooks (e.g. pre-push tag/version check).
+setup:
+	git config core.hooksPath .githooks
+	@echo "git hooks enabled (core.hooksPath=.githooks)"
 
 build: build-cli build-macos build-linux
 

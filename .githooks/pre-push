@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+#
+# Abort a push when a `v*` tag's name doesn't match the version declared in the
+# source manifests at the tagged commit. This is what prevents a repeat of the
+# v0.3.0 release shipping 0.2.4-named binaries: Tauri derives artifact names
+# from tauri.conf.json / Cargo.toml, not from the git tag, so the two can drift
+# silently. Enable with: make setup  (or: git config core.hooksPath .githooks)
+#
+# Bypass for an intentional mismatch with: git push --no-verify
+set -euo pipefail
+
+# stdin lines: <local ref> <local sha> <remote ref> <remote sha>
+status=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+	case "$remote_ref" in
+		refs/tags/v*) ;;
+		*) continue ;;
+	esac
+
+	tag="${remote_ref#refs/tags/}"
+	want="${tag#v}"                       # e.g. v0.3.0 -> 0.3.0
+	commit="$(git rev-parse "${local_ref}^{commit}")"
+
+	# [workspace.package] version from Cargo.toml at the tagged commit
+	cargo_ver="$(git show "${commit}:Cargo.toml" \
+		| awk '/^\[workspace\.package\]/{p=1} p && /^version[[:space:]]*=/{gsub(/[" ]/,"",$3); print $3; exit}')"
+
+	# "version": "x.y.z" from tauri.conf.json at the tagged commit
+	tauri_ver="$(git show "${commit}:crates/elo-tauri/tauri.conf.json" \
+		| sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+
+	# "version": "x.y.z" from the frontend package.json at the tagged commit
+	pkg_ver="$(git show "${commit}:elo-tauri/package.json" \
+		| sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+
+	for pair in "Cargo.toml=${cargo_ver}" "tauri.conf.json=${tauri_ver}" "package.json=${pkg_ver}"; do
+		file="${pair%%=*}"
+		got="${pair#*=}"
+		if [ -z "$got" ]; then
+			echo "pre-push: could not read version from ${file} at ${commit:0:8}" >&2
+			status=1
+		elif [ "$got" != "$want" ]; then
+			echo "pre-push: tag ${tag} does not match ${file} version ${got} (expected ${want})" >&2
+			status=1
+		fi
+	done
+
+	if [ "$status" -eq 0 ]; then
+		echo "pre-push: ${tag} matches manifest version ${want} ✓" >&2
+	fi
+done
+
+if [ "$status" -ne 0 ]; then
+	echo "pre-push: refusing to push mismatched tag. Bump versions or use --no-verify to override." >&2
+fi
+exit "$status"
