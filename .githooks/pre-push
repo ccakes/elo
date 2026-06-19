@@ -1,10 +1,20 @@
 #!/usr/bin/env bash
 #
 # Abort a push when a `v*` tag's name doesn't match the version declared in the
-# source manifests at the tagged commit. This is what prevents a repeat of the
-# v0.3.0 release shipping 0.2.4-named binaries: Tauri derives artifact names
-# from tauri.conf.json / Cargo.toml, not from the git tag, so the two can drift
-# silently. Enable with: make setup  (or: git config core.hooksPath .githooks)
+# source at the tagged commit. This is what prevents a repeat of the v0.3.0
+# release shipping 0.2.4-named binaries: Tauri derives artifact names from the
+# manifests, not the git tag, so the two can drift silently. Enable with:
+# make setup  (or: git config core.hooksPath .githooks)
+#
+# Checks, at the tagged commit:
+#   - Cargo.toml          [workspace.package] version
+#   - tauri.conf.json     bundle version
+#   - package.json        frontend version
+#   - Cargo.lock          every resolved elo-* crate version
+# The Cargo.lock check is the catch-all: it reflects an independent version pin
+# in a member crate (e.g. crates/elo-tauri not inheriting the workspace version)
+# AND a stale lockfile that a bump forgot to refresh -- both of which would
+# otherwise sail past the manifest checks above.
 #
 # Bypass for an intentional mismatch with: git push --no-verify
 set -euo pipefail
@@ -33,20 +43,37 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 	pkg_ver="$(git show "${commit}:elo-tauri/package.json" \
 		| sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
 
-	for pair in "Cargo.toml=${cargo_ver}" "tauri.conf.json=${tauri_ver}" "package.json=${pkg_ver}"; do
+	# Resolved version of every elo-* crate from Cargo.lock at the tagged commit,
+	# as "Cargo.lock[<crate>]=<version>" lines.
+	lock_pairs="$(git show "${commit}:Cargo.lock" \
+		| awk '/^name = "elo-/{n=$3; gsub(/"/,"",n); next}
+		       n && /^version = /{v=$3; gsub(/"/,"",v); print "Cargo.lock["n"]="v; n=""}')"
+	if [ -z "$lock_pairs" ]; then
+		echo "pre-push: found no elo-* crates in Cargo.lock at ${commit:0:8}" >&2
+		status=1
+	fi
+
+	tag_ok=1
+	while IFS= read -r pair; do
+		[ -z "$pair" ] && continue
 		file="${pair%%=*}"
 		got="${pair#*=}"
 		if [ -z "$got" ]; then
 			echo "pre-push: could not read version from ${file} at ${commit:0:8}" >&2
-			status=1
+			tag_ok=0; status=1
 		elif [ "$got" != "$want" ]; then
 			echo "pre-push: tag ${tag} does not match ${file} version ${got} (expected ${want})" >&2
-			status=1
+			tag_ok=0; status=1
 		fi
-	done
+	done <<-EOF
+		Cargo.toml=${cargo_ver}
+		tauri.conf.json=${tauri_ver}
+		package.json=${pkg_ver}
+		${lock_pairs}
+	EOF
 
-	if [ "$status" -eq 0 ]; then
-		echo "pre-push: ${tag} matches manifest version ${want} ✓" >&2
+	if [ "$tag_ok" -eq 1 ] && [ -n "$lock_pairs" ]; then
+		echo "pre-push: ${tag} matches version ${want} across manifests + Cargo.lock ✓" >&2
 	fi
 done
 
