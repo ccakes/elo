@@ -5,5 +5,9 @@
 *.swo
 .DS_Store
 
+/pkg/
+/src/
+
 /*.zst
 /*.deb
+
