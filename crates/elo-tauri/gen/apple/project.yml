@@ -32,6 +32,8 @@ targets:
       - path: Sources
       - path: Assets.xcassets
       - path: Externals
+        excludes:
+          - "**/*.a"
       - path: elo-tauri_iOS
       - path: assets
         buildPhase: resources
@@ -53,7 +55,7 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         CFBundleShortVersionString: 0.3.1
-        CFBundleVersion: "0.3.1"
+        CFBundleVersion: "1"
     entitlements:
       path: elo-tauri_iOS/elo-tauri_iOS.entitlements
     scheme:

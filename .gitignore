@@ -14,7 +14,13 @@
 # fastlane / App Store Connect secrets and generated reports
 fastlane/.env
 *.p8
+*.p12
+*.cer
+*.certSigningRequest
+*.mobileprovision
+fastlane/.signing/
 fastlane/report.xml
 fastlane/Preview.html
+fastlane/README.md
 fastlane/test_output
 

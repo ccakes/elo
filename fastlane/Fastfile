@@ -1,9 +1,12 @@
 # Fastfile for Elo — Tauri iOS app.
 #
-# The actual compile is driven by `cargo tauri ios build` (NOT gym/xcodebuild),
-# because the Rust build-script phase relies on setup the Tauri CLI performs.
-# fastlane's job here is: auth, code-signing material, build-number bump, and
-# the TestFlight upload.
+# The compile is driven by `cargo tauri ios build` (NOT gym/xcodebuild): the Rust
+# build-script phase relies on setup the Tauri CLI performs, and Tauri patches the
+# Xcode project's signing settings itself on every build. So fastlane does NOT
+# manage signing here — instead we hand Tauri the App Store Connect API key via the
+# APPLE_* env vars it reads, and it auto-provisions through xcodebuild
+# `-allowProvisioningUpdates`. fastlane's remaining jobs: build-number bump and the
+# TestFlight upload.
 
 default_platform(:ios)
 
@@ -11,45 +14,50 @@ default_platform(:ios)
 REPO_ROOT       = File.expand_path("..", __dir__)
 APPLE_DIR       = File.join(REPO_ROOT, "crates/elo-tauri/gen/apple")
 INFO_PLIST      = File.join(APPLE_DIR, "elo-tauri_iOS/Info.plist")
-PROJECT_YML     = File.join(APPLE_DIR, "project.yml")
 APP_IDENTIFIER  = "co.nurve.elo.calculator"
-PROFILE_NAME    = "Elo AppStore"
+TEAM_ID         = "C2RZM372M3"
 
 platform :ios do
   desc "Build and upload a build to TestFlight"
   lane :beta do
-    # --- Auth: App Store Connect API key (no Apple ID / 2FA needed) ---
+    # --- Auth for the fastlane actions (build-number lookup + upload) ---
     # Reads ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH from the environment.
     key = app_store_connect_api_key(
-      key_id:      ENV.fetch("ASC_KEY_ID"),
-      issuer_id:   ENV.fetch("ASC_ISSUER_ID"),
+      key_id:       ENV.fetch("ASC_KEY_ID"),
+      issuer_id:    ENV.fetch("ASC_ISSUER_ID"),
       key_filepath: ENV.fetch("ASC_KEY_PATH"),
-      in_house:    false,
+      in_house:     false,
     )
 
-    # --- Code signing: ensure a distribution cert + an App Store profile ---
-    # `cert`/`sigh` create-or-reuse material on the portal and install it into
-    # the login keychain. The profile name is fixed so it matches the
-    # PROVISIONING_PROFILE_SPECIFIER baked into project.yml / ExportOptions.plist.
-    cert(api_key: key)
+    # APPLE_DEVELOPMENT_TEAM lets Tauri stamp the team into the Xcode project so
+    # the *archive* step succeeds. (Tauri's export step does not forward the API
+    # key to xcodebuild, so automatic provisioning can't fetch a profile there —
+    # hence we sign the export manually below.)
+    ENV["APPLE_DEVELOPMENT_TEAM"] = TEAM_ID
+
+    # --- Code signing: ensure a distribution cert + install the App Store ---
+    # profile locally, named to match ExportOptions.plist's provisioningProfiles
+    # mapping. The Tauri export step re-signs the archive with these.
+    signing_dir = File.join(REPO_ROOT, "fastlane/.signing")
+    cert(api_key: key, output_path: signing_dir)
     sigh(
-      api_key:          key,
-      app_identifier:   APP_IDENTIFIER,
-      provisioning_name: PROFILE_NAME,
-      platform:         "ios",
+      api_key:           key,
+      app_identifier:    APP_IDENTIFIER,
+      provisioning_name: "Elo AppStore",
+      platform:          "ios",
+      output_path:       signing_dir,
     )
 
     # --- Build number: next TestFlight build number for this version ---
-    latest = latest_testflight_build_number(
-      api_key:        key,
-      app_identifier: APP_IDENTIFIER,
+    build_number = (latest_testflight_build_number(
+      api_key:              key,
+      app_identifier:       APP_IDENTIFIER,
       initial_build_number: 0,
-    )
-    build_number = (latest + 1).to_s
-    set_build_number(build_number)
+    ) + 1).to_s
     UI.message("Building TestFlight build number #{build_number}")
+    set_info_plist_value(path: INFO_PLIST, key: "CFBundleVersion", value: build_number)
 
-    # --- Compile via the Tauri CLI (this runs the Rust build + archive/export) ---
+    # --- Compile via the Tauri CLI (runs the Rust build + archive/export) ---
     Dir.chdir(REPO_ROOT) do
       sh("cargo", "tauri", "ios", "build", "--export-method", "app-store-connect")
     end
@@ -60,20 +68,9 @@ platform :ios do
     UI.success("Found IPA: #{ipa}")
 
     upload_to_testflight(
-      api_key:    key,
-      ipa:        ipa,
+      api_key:                           key,
+      ipa:                               ipa,
       skip_waiting_for_build_processing: true,
     )
   end
-end
-
-# CFBundleVersion is written in two places that can each be authoritative
-# depending on whether xcodegen regenerates the project during the build, so set
-# both: the generated Info.plist and the project.yml it is generated from.
-def set_build_number(build_number)
-  sh("/usr/libexec/PlistBuddy", "-c",
-     "Set :CFBundleVersion #{build_number}", INFO_PLIST)
-  text = File.read(PROJECT_YML)
-  text = text.gsub(/CFBundleVersion: ".*?"/, %(CFBundleVersion: "#{build_number}"))
-  File.write(PROJECT_YML, text)
 end

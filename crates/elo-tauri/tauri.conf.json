@@ -37,7 +37,8 @@
       "icons/icon.ico"
     ],
     "iOS": {
-      "minimumSystemVersion": "14.0"
+      "minimumSystemVersion": "14.0",
+      "developmentTeam": "C2RZM372M3"
     }
   }
 }
