@@ -11,3 +11,10 @@
 /*.zst
 /*.deb
 
+# fastlane / App Store Connect secrets and generated reports
+fastlane/.env
+*.p8
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/test_output
+

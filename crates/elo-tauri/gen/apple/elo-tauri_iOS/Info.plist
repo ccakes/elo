@@ -44,7 +44,7 @@
 	</array>
 	<key>NSUbiquitousContainers</key>
 	<dict>
-		<key>iCloud.com.elo.calculator</key>
+		<key>iCloud.co.nurve.elo.calculator</key>
 		<dict>
 			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
 			<true/>

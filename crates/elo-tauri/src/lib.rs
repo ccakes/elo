@@ -83,7 +83,7 @@ mod icloud {
     use objc2_foundation::{NSFileManager, NSString};
     use std::path::PathBuf;
 
-    const CONTAINER: &str = "iCloud.com.elo.calculator";
+    const CONTAINER: &str = "iCloud.co.nurve.elo.calculator";
 
     /// Resolve `<ubiquity-container>/Documents`, creating it if needed.
     ///

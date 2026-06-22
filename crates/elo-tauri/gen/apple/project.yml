@@ -1,6 +1,6 @@
 name: elo-tauri
 options:
-  bundleIdPrefix: com.elo.calculator
+  bundleIdPrefix: co.nurve.elo.calculator
   deploymentTarget:
     iOS: 14.0
 fileGroups: [../../src]
@@ -11,9 +11,8 @@ settingGroups:
   app:
     base:
       PRODUCT_NAME: Elo
-      PRODUCT_BUNDLE_IDENTIFIER: com.elo.calculator
+      PRODUCT_BUNDLE_IDENTIFIER: co.nurve.elo.calculator
       DEVELOPMENT_TEAM: C2RZM372M3
-      CODE_SIGN_STYLE: Automatic
 targetTemplates:
   app:
     type: application
@@ -70,6 +69,11 @@ targets:
         LIBRARY_SEARCH_PATHS[arch=arm64]: $(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)
         ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: true
         EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
+      configs:
+        release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Apple Distribution
+          PROVISIONING_PROFILE_SPECIFIER: Elo AppStore
       groups: [app]
     dependencies:
       - framework: libapp.a

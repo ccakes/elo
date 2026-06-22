@@ -1,0 +1,5 @@
+app_identifier("co.nurve.elo.calculator")
+team_id("C2RZM372M3")
+
+# apple_id is intentionally omitted: auth uses an App Store Connect API key
+# (ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_PATH), not an Apple ID login.

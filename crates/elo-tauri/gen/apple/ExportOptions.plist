@@ -4,5 +4,16 @@
 <dict>
     <key>method</key>
     <string>app-store-connect</string>
+    <key>signingStyle</key>
+    <string>manual</string>
+    <key>teamID</key>
+    <string>C2RZM372M3</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>co.nurve.elo.calculator</key>
+        <string>Elo AppStore</string>
+    </dict>
+    <key>uploadSymbols</key>
+    <true/>
 </dict>
 </plist>
