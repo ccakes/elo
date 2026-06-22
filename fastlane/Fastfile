@@ -1,21 +1,23 @@
 # Fastfile for Elo — Tauri iOS app.
 #
 # The compile is driven by `cargo tauri ios build` (NOT gym/xcodebuild): the Rust
-# build-script phase relies on setup the Tauri CLI performs, and Tauri patches the
-# Xcode project's signing settings itself on every build. So fastlane does NOT
-# manage signing here — instead we hand Tauri the App Store Connect API key via the
-# APPLE_* env vars it reads, and it auto-provisions through xcodebuild
-# `-allowProvisioningUpdates`. fastlane's remaining jobs: build-number bump and the
-# TestFlight upload.
+# build-script phase relies on setup the Tauri CLI performs. Signing is split:
+#   - ARCHIVE: Manual signing is baked into gen/apple/project.yml's release config
+#     (Apple Distribution + the "Elo AppStore" profile). Tauri patches in
+#     DEVELOPMENT_TEAM but does not re-run xcodegen, so that config survives.
+#   - EXPORT:  gen/apple/ExportOptions.plist (manual) makes Tauri's export embed
+#     the profile and re-sign with the real cert.
+# fastlane prepares the cert/profile, then AFTER the build re-signs the IPA to set
+# a unique CFBundleVersion (Tauri forces CFBundleVersion == tauri.conf version
+# during the build, so it can only be set post-export — which requires re-signing).
 
 default_platform(:ios)
 
-# Repo root is one level up from the fastlane/ directory.
-REPO_ROOT       = File.expand_path("..", __dir__)
-APPLE_DIR       = File.join(REPO_ROOT, "crates/elo-tauri/gen/apple")
-INFO_PLIST      = File.join(APPLE_DIR, "elo-tauri_iOS/Info.plist")
-APP_IDENTIFIER  = "co.nurve.elo.calculator"
-TEAM_ID         = "C2RZM372M3"
+REPO_ROOT      = File.expand_path("..", __dir__)
+APPLE_DIR      = File.join(REPO_ROOT, "crates/elo-tauri/gen/apple")
+TAURI_CONF     = File.join(REPO_ROOT, "crates/elo-tauri/tauri.conf.json")
+APP_IDENTIFIER = "co.nurve.elo.calculator"
+TEAM_ID        = "C2RZM372M3"
 
 platform :ios do
   desc "Build and upload a build to TestFlight"
@@ -29,15 +31,12 @@ platform :ios do
       in_house:     false,
     )
 
-    # APPLE_DEVELOPMENT_TEAM lets Tauri stamp the team into the Xcode project so
-    # the *archive* step succeeds. (Tauri's export step does not forward the API
-    # key to xcodebuild, so automatic provisioning can't fetch a profile there —
-    # hence we sign the export manually below.)
+    # Lets Tauri stamp the team into the Xcode project so the archive succeeds.
     ENV["APPLE_DEVELOPMENT_TEAM"] = TEAM_ID
 
-    # --- Code signing: ensure a distribution cert + install the App Store ---
-    # profile locally, named to match ExportOptions.plist's provisioningProfiles
-    # mapping. The Tauri export step re-signs the archive with these.
+    # --- Code signing material: distribution cert + the "Elo AppStore" profile ---
+    # Written to a gitignored dir so nothing secret lands in the repo. The names
+    # match ExportOptions.plist / project.yml so Tauri's export step uses them.
     signing_dir = File.join(REPO_ROOT, "fastlane/.signing")
     cert(api_key: key, output_path: signing_dir)
     sigh(
@@ -47,25 +46,39 @@ platform :ios do
       platform:          "ios",
       output_path:       signing_dir,
     )
+    # sigh returns the profile UUID; the file path is in lane_context.
+    profile_path = lane_context[SharedValues::SIGH_PROFILE_PATH]
 
-    # --- Build number: next TestFlight build number for this version ---
-    build_number = (latest_testflight_build_number(
-      api_key:              key,
-      app_identifier:       APP_IDENTIFIER,
-      initial_build_number: 0,
-    ) + 1).to_s
-    UI.message("Building TestFlight build number #{build_number}")
-    set_info_plist_value(path: INFO_PLIST, key: "CFBundleVersion", value: build_number)
-
-    # --- Compile via the Tauri CLI (runs the Rust build + archive/export) ---
+    # --- Compile via the Tauri CLI (runs the Rust build + archive + export) ---
     Dir.chdir(REPO_ROOT) do
       sh("cargo", "tauri", "ios", "build", "--export-method", "app-store-connect")
     end
 
-    # --- Locate the exported IPA and upload ---
     ipa = Dir[File.join(APPLE_DIR, "build/**/*.ipa")].max_by { |f| File.mtime(f) }
     UI.user_error!("No .ipa found under #{APPLE_DIR}/build") if ipa.nil?
-    UI.success("Found IPA: #{ipa}")
+
+    # --- Unique build number: <short>.<n>, e.g. 0.3.1 -> 0.3.1.1, 0.3.1.2 ---
+    # Tauri set CFBundleVersion == short version during the build; bump it to the
+    # next 4th-component value and re-sign the IPA (changing Info.plist breaks the
+    # signature, so a resign is required).
+    short  = JSON.parse(File.read(TAURI_CONF)).fetch("version") # e.g. "0.3.1"
+    latest = latest_testflight_build_number(
+      api_key:              key,
+      app_identifier:       APP_IDENTIFIER,
+      version:              short,
+      initial_build_number: "#{short}.0",
+    ).to_s
+    next_n        = (latest.split(".")[3] || "0").to_i + 1
+    bundle_version = "#{short}.#{next_n}"
+    UI.message("Setting CFBundleVersion #{bundle_version} (short version #{short})")
+
+    resign(
+      ipa:                  ipa,
+      signing_identity:     distribution_identity,
+      provisioning_profile: profile_path,
+      bundle_version:       bundle_version,
+      use_app_entitlements: true,
+    )
 
     upload_to_testflight(
       api_key:                           key,
@@ -73,4 +86,11 @@ platform :ios do
       skip_waiting_for_build_processing: true,
     )
   end
+end
+
+# The full codesigning identity name (avoids hardcoding the team member's name).
+def distribution_identity
+  line = `security find-identity -v -p codesigning`.lines.find { |l| l.include?("Apple Distribution") }
+  UI.user_error!("No 'Apple Distribution' identity in keychain") unless line
+  line[/"([^"]+)"/, 1]
 end
