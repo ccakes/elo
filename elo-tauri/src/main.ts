@@ -5,6 +5,8 @@ interface LineResult {
   display: string;
   is_empty: boolean;
   is_error: boolean;
+  // True when the line is plain text / markdown prose rather than a formula.
+  is_text: boolean;
   error: string | null;
 }
 
