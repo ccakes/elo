@@ -120,11 +120,23 @@ jobs:
       - name: Build macOS app
         run: make build-macos
 
+      - name: Archive macOS app (preserve executable bit)
+        # actions/upload-artifact does NOT retain Unix file permissions, which
+        # strips the +x bit from Elo.app/Contents/MacOS/Elo and leaves the
+        # released app unable to launch. Zip the bundle here on the macOS runner
+        # (with ditto, which keeps permissions and symlinks) so the executable
+        # bit is preserved inside the archive; the release job ships it as-is.
+        run: |
+          cd build
+          ditto -c -k --keepParent Elo.app Elo-macos.app.zip
+
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v7
         with:
           name: macos-app
-          path: build/*
+          path: |
+            build/Elo-macos.app.zip
+            build/*.dmg
 
   build-linux:
     name: Build Linux Packages
@@ -195,10 +207,10 @@ jobs:
       - name: Collect release assets
         run: |
           mkdir -p release-assets
-          # macOS
-          if [ -d "artifacts/macos-app/Elo.app" ]; then
-            (cd artifacts/macos-app && zip -r ../../release-assets/Elo-macos.app.zip Elo.app)
-          fi
+          # macOS — the .app was zipped on the macOS runner so its executable
+          # bit survives; pass the archive through unchanged (re-zipping the
+          # downloaded tree would lose +x, as upload-artifact strips perms).
+          cp artifacts/macos-app/Elo-macos.app.zip release-assets/ 2>/dev/null || true
           cp artifacts/macos-app/*.dmg release-assets/ 2>/dev/null || true
           # Linux
           cp artifacts/linux-packages/*.deb release-assets/ 2>/dev/null || true
