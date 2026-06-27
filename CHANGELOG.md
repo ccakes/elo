@@ -4,6 +4,12 @@ All notable changes to Elo are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] — 2026-06-27
+
+- Non-formula lines are treated as plain text instead of raising an error.
+- macOS releases now publish a DMG instead of a zipped `.app`, and the app
+  executable bit is preserved through the release pipeline.
+
 ## [0.3.1] — 2026-06-19
 
 - Universal macOS binary supporting both Apple Silicon and Intel.

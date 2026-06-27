@@ -1,6 +1,6 @@
 # Maintainer: cdaniel
 pkgname=elo
-pkgver=0.3.1
+pkgver=0.4.0
 pkgrel=1
 pkgdesc='Elo — a Numi-compatible calculator'
 arch=('x86_64')
