@@ -57,11 +57,11 @@ platform :ios do
     ipa = Dir[File.join(APPLE_DIR, "build/**/*.ipa")].max_by { |f| File.mtime(f) }
     UI.user_error!("No .ipa found under #{APPLE_DIR}/build") if ipa.nil?
 
-    # --- Unique build number: <short>.<n>, e.g. 0.3.1 -> 0.3.1.1, 0.3.1.2 ---
+    # --- Unique build number: <short>.<n>, e.g. 0.4.0 -> 0.4.0.1, 0.4.0.2 ---
     # Tauri set CFBundleVersion == short version during the build; bump it to the
     # next 4th-component value and re-sign the IPA (changing Info.plist breaks the
     # signature, so a resign is required).
-    short  = JSON.parse(File.read(TAURI_CONF)).fetch("version") # e.g. "0.3.1"
+    short  = JSON.parse(File.read(TAURI_CONF)).fetch("version") # e.g. "0.4.0"
     latest = latest_testflight_build_number(
       api_key:              key,
       app_identifier:       APP_IDENTIFIER,
