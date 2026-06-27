@@ -56,8 +56,20 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         CFBundleShortVersionString: 0.3.1
         CFBundleVersion: "1"
+        NSUbiquitousContainers:
+          iCloud.co.nurve.elo.calculator:
+            NSUbiquitousContainerIsDocumentScopePublic: true
+            NSUbiquitousContainerName: Elo
+            NSUbiquitousContainerSupportedFolderLevels: Any
     entitlements:
       path: elo-tauri_iOS/elo-tauri_iOS.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.co.nurve.elo.calculator
+        com.apple.developer.icloud-services:
+          - CloudDocuments
+        com.apple.developer.ubiquity-container-identifiers:
+          - iCloud.co.nurve.elo.calculator
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full
