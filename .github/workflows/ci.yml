@@ -121,10 +121,13 @@ jobs:
         run: make build-macos
 
       - name: Upload macOS artifacts
+        # The .dmg is a single opaque disk image, so upload-artifact's lack of
+        # permission preservation can't strip the executable bit from the app
+        # inside it (unlike a raw .app tree).
         uses: actions/upload-artifact@v7
         with:
           name: macos-app
-          path: build/*
+          path: build/*.dmg
 
   build-linux:
     name: Build Linux Packages
@@ -195,11 +198,8 @@ jobs:
       - name: Collect release assets
         run: |
           mkdir -p release-assets
-          # macOS
-          if [ -d "artifacts/macos-app/Elo.app" ]; then
-            (cd artifacts/macos-app && zip -r ../../release-assets/Elo-macos.app.zip Elo.app)
-          fi
-          cp artifacts/macos-app/*.dmg release-assets/ 2>/dev/null || true
+          # macOS — ship the universal .dmg. Homebrew casks mount it natively.
+          cp artifacts/macos-app/*.dmg release-assets/
           # Linux
           cp artifacts/linux-packages/*.deb release-assets/ 2>/dev/null || true
           cp artifacts/linux-packages/*.AppImage release-assets/ 2>/dev/null || true

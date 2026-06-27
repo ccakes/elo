@@ -132,6 +132,14 @@ impl Parser {
         None
     }
 
+    /// Whether the parser has consumed every token. A complete formula
+    /// reaches the end of the token stream; trailing tokens are a strong
+    /// signal that the line is prose (e.g. "buy 3 apples") rather than a
+    /// calculation.
+    pub fn at_end(&self) -> bool {
+        self.pos >= self.tokens.len()
+    }
+
     pub fn parse_expr(&mut self) -> Expr {
         self.parse_conversion()
     }

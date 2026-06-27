@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::ast::{Expr, Line};
-use crate::eval::{EvalContext, eval_line};
+use crate::eval::{EvalContext, eval_expr};
 use crate::formatter::format_value;
 use crate::parser::Parser;
 use crate::rates::RateStore;
@@ -13,12 +13,30 @@ pub struct Session {
     in_code_fence: bool,
 }
 
+/// How a line was interpreted.
+///
+/// Elo is a notepad first and a calculator second: a document is a mix of
+/// prose and the occasional expression. Rather than parsing every line
+/// eagerly and surfacing "unknown identifier" errors for ordinary sentences,
+/// each line is classified into one of these states.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LineKind {
+    /// The line was recognized as a formula. The accompanying [`LineResult`]
+    /// `value` holds the result, which may itself be a [`Value::Error`] for a
+    /// genuinely malformed calculation (e.g. `foo(10)` or `1 / bogus`).
+    Formula,
+    /// The line is plain text / markdown prose (or a header, comment, code
+    /// fence, etc.). No result is displayed and it never reports an error.
+    Text,
+}
+
 /// Result of evaluating a single line
 #[derive(Debug, Clone)]
 pub struct LineResult {
     pub input: String,
     pub value: Value,
     pub display: String,
+    pub kind: LineKind,
 }
 
 impl Session {
@@ -38,74 +56,83 @@ impl Session {
 
     /// Evaluate a single line in the context of this session
     pub fn eval_line(&mut self, input: &str) -> LineResult {
-        let empty = || LineResult {
+        let text = || LineResult {
             input: input.to_string(),
             value: Value::Empty,
             display: String::new(),
+            kind: LineKind::Text,
         };
 
         if input.trim().is_empty() {
             self.ctx.new_block();
-            return empty();
+            return text();
         }
 
-        // Code fence toggle: lines starting with ``` produce empty results
+        // Code fence toggle: lines starting with ``` produce no result.
         if input.trim_start().starts_with("```") {
             self.in_code_fence = !self.in_code_fence;
-            return empty();
+            return text();
         }
 
-        // Inside a code fence: don't evaluate
+        // Inside a code fence: never evaluate.
         if self.in_code_fence {
-            return empty();
+            return text();
         }
 
-        // List item prefix: strip "- " or "* ", evaluate the rest.
-        // If the stripped content errors (pure text), return empty instead.
+        // Markdown list marker ("- " / "* "): strip it and evaluate the rest,
+        // so "- 2 + 2" works. A marker immediately followed by a digit (e.g.
+        // "- 5") is left intact so it still parses as a negation, matching how
+        // a calculator would read it. A bare marker ("- ") is just text.
         let trimmed = input.trim_start();
-        if trimmed.starts_with("- ") || trimmed.starts_with("* ") {
+        let content = if trimmed.starts_with("- ") || trimmed.starts_with("* ") {
             let after_marker = trimmed[2..].trim_start();
-            // Empty list marker (just "- " or "* ")
             if after_marker.is_empty() {
-                return empty();
+                return text();
             }
-            // Non-digit content: try to evaluate, fall back to empty on error.
-            // Digits fall through so "- 5" still parses as negative 5.
             if after_marker.starts_with(|c: char| !c.is_ascii_digit()) {
-                let mut parser = Parser::new(after_marker);
-                let line = parser.parse_line();
-                // Only swallow errors for bare identifiers (plain text like "groceries").
-                // Expression-like structures (function calls, operators, etc.) should
-                // propagate their errors so the user gets useful feedback.
-                let is_bare_text = matches!(
-                    &line,
-                    Line::Expression {
-                        expr: Expr::Ident(_),
-                        ..
-                    }
-                );
-                let value = eval_line(&line, &mut self.ctx);
-                if value.is_error() && is_bare_text {
-                    return empty();
+                after_marker
+            } else {
+                input
+            }
+        } else {
+            input
+        };
+
+        let mut parser = Parser::new(content);
+        let line = parser.parse_line();
+        let consumed_all = parser.at_end();
+
+        // Headers, comments, and lines that lex to nothing are structural prose.
+        if matches!(line, Line::Empty | Line::Comment(_) | Line::Header(_)) {
+            return text();
+        }
+
+        // Evaluate without committing side effects yet — a line that turns out
+        // to be prose must not pollute `prev`, the running block, or variables.
+        let value = match &line {
+            Line::Expression { expr, .. } | Line::Assignment { expr, .. } => {
+                eval_expr(expr, &self.ctx)
+            }
+            // `Empty`/`Comment`/`Header` were handled above.
+            _ => Value::Empty,
+        };
+
+        match classify(&line, consumed_all, &value) {
+            LineKind::Text => text(),
+            LineKind::Formula => {
+                // Commit side effects only now that we know it's a real formula.
+                if let Line::Assignment { name, .. } = &line {
+                    self.ctx.variables.insert(name.clone(), value.clone());
                 }
+                self.ctx.record_result(&value);
                 let display = format_value(&value);
-                return LineResult {
+                LineResult {
                     input: input.to_string(),
                     value,
                     display,
-                };
+                    kind: LineKind::Formula,
+                }
             }
-        }
-
-        let mut parser = Parser::new(input);
-        let line = parser.parse_line();
-        let value = eval_line(&line, &mut self.ctx);
-        let display = format_value(&value);
-
-        LineResult {
-            input: input.to_string(),
-            value,
-            display,
         }
     }
 
@@ -124,6 +151,44 @@ impl Default for Session {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Decide whether an evaluated line should be surfaced as a formula result or
+/// treated as plain prose.
+///
+/// The parser is deliberately eager (see the markdown/list-item work in commits
+/// `090c470` and `7a36ca6`): genuine mistakes like `foo(10)` or `1 / bogus`
+/// should still surface "unknown function" / "unknown identifier" errors rather
+/// than silently disappearing. So we only fall back to [`LineKind::Text`] when a
+/// line *both* errors *and* doesn't look like a deliberate calculation:
+///
+///   * the parser left tokens unconsumed — trailing prose like "buy 3 apples"
+///     or "- `code` text", where only the first word parsed; or
+///   * the whole line is a single bare identifier, e.g. "groceries".
+///
+/// A line that evaluates cleanly is always a formula (so writing a lone variable
+/// name like `total` still recalls its value), and a line that parsed fully into
+/// a computational structure keeps its error.
+fn classify(line: &Line, consumed_all: bool, value: &Value) -> LineKind {
+    if !value.is_error() {
+        return LineKind::Formula;
+    }
+    if !consumed_all || is_bare_text(line) {
+        return LineKind::Text;
+    }
+    LineKind::Formula
+}
+
+/// A line whose expression is a single identifier with nothing else — plain
+/// prose such as "groceries" or "TODO", optionally carrying a label.
+fn is_bare_text(line: &Line) -> bool {
+    matches!(
+        line,
+        Line::Expression {
+            expr: Expr::Ident(_),
+            ..
+        }
+    )
 }
 
 #[cfg(test)]
@@ -314,5 +379,73 @@ mod tests {
         // "- foo `code fence`" should also be empty (text with inline code)
         let result = session.eval_line("- foo `code fence`");
         assert!(result.value.is_empty());
+    }
+
+    #[test]
+    fn test_session_plain_text_is_not_error() {
+        let mut session = Session::new();
+        // A bare word and a full sentence are prose, not failed formulas.
+        for line in ["groceries", "buy some milk", "this is a note"] {
+            let result = session.eval_line(line);
+            assert!(!result.value.is_error(), "{line:?} should not error");
+            assert!(result.value.is_empty(), "{line:?} should be empty");
+            assert_eq!(result.kind, LineKind::Text, "{line:?} should be text");
+        }
+    }
+
+    #[test]
+    fn test_session_prose_with_number_is_text() {
+        let mut session = Session::new();
+        // Leading word + trailing tokens: parser stops at "I", prose remains.
+        let result = session.eval_line("I have 3 cats");
+        assert!(!result.value.is_error());
+        assert_eq!(result.kind, LineKind::Text);
+    }
+
+    #[test]
+    fn test_session_real_formula_error_is_preserved() {
+        let mut session = Session::new();
+        // Structured calculations that fail should still surface their error.
+        for line in ["1 / bogus", "foo(10)", "10 +"] {
+            let result = session.eval_line(line);
+            assert!(result.value.is_error(), "{line:?} should error");
+            assert_eq!(result.kind, LineKind::Formula, "{line:?} is a formula");
+        }
+    }
+
+    #[test]
+    fn test_session_bare_variable_recall() {
+        let mut session = Session::new();
+        session.eval_line("total = 100");
+        // A lone known variable name recalls its value (not treated as text).
+        let result = session.eval_line("total");
+        assert_eq!(result.display, "100");
+        assert_eq!(result.kind, LineKind::Formula);
+    }
+
+    #[test]
+    fn test_session_prose_does_not_pollute_prev() {
+        let mut session = Session::new();
+        session.eval_line("42");
+        session.eval_line("this is a note"); // prose: must not clobber prev
+        let result = session.eval_line("prev");
+        assert_eq!(result.display, "42");
+    }
+
+    #[test]
+    fn test_session_prose_does_not_pollute_sum() {
+        let mut session = Session::new();
+        session.eval_line("10");
+        session.eval_line("shopping list"); // prose between numbers
+        session.eval_line("20");
+        let result = session.eval_line("sum");
+        assert_eq!(result.display, "30");
+    }
+
+    #[test]
+    fn test_session_text_list_item_kind() {
+        let mut session = Session::new();
+        assert_eq!(session.eval_line("- groceries").kind, LineKind::Text);
+        assert_eq!(session.eval_line("* TODO item").kind, LineKind::Text);
     }
 }

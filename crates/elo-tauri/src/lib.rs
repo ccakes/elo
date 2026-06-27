@@ -1,3 +1,4 @@
+use elo_core::session::LineKind;
 use elo_core::{RateStore, Session, Value};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
@@ -15,6 +16,9 @@ struct LineResult {
     display: String,
     is_empty: bool,
     is_error: bool,
+    /// True when the line was treated as plain text / markdown prose rather than
+    /// a formula. Such lines never carry an error.
+    is_text: bool,
     error: Option<String>,
 }
 
@@ -37,6 +41,7 @@ fn evaluate_document(text: &str, state: State<AppState>) -> Vec<LineResult> {
                 display: result.display,
                 is_empty: result.value.is_empty(),
                 is_error: result.value.is_error(),
+                is_text: result.kind == LineKind::Text,
                 error,
             }
         })
@@ -57,6 +62,7 @@ fn evaluate_line(line: &str, state: State<AppState>) -> LineResult {
         display: result.display,
         is_empty: result.value.is_empty(),
         is_error: result.value.is_error(),
+        is_text: result.kind == LineKind::Text,
         error,
     }
 }
