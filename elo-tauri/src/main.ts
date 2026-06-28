@@ -129,14 +129,14 @@ function highlightMarkdown(text: string): string {
     const headerMatch = escaped.match(/^(#{1,3}\s)(.*)/);
     if (headerMatch) {
       result.push(
-        `<span class="md-hash">${headerMatch[1]}</span><span class="md-header">${headerMatch[2]}</span>`,
+        `<span class="md-hash">${headerMatch[1]}</span><span class="md-header">${applyOperators(headerMatch[2])}</span>`,
       );
       continue;
     }
 
     // Comments
     if (trimmed.startsWith("//")) {
-      result.push(`<span class="md-comment">${escaped}</span>`);
+      result.push(`<span class="md-comment">${applyOperators(escaped)}</span>`);
       continue;
     }
 
@@ -165,19 +165,48 @@ function highlightMarkdown(text: string): string {
 }
 
 function applyInlineFormatting(escaped: string): string {
-  // Single-pass regex matching inline code, bold, underline, italic
-  // Order matters: longer delimiters first to avoid partial matches
-  return escaped.replace(
-    /(`[^`]+`)|(\*\*[^*]+\*\*)|(__[^_]+__)|(\*[^*]+\*)|(_[^_]+_)/g,
-    (match, code, bold, underline, italicStar, italicUnderscore) => {
-      if (code) return `<span class="md-inline-code">${match}</span>`;
-      if (bold) return `<span class="md-bold">${match}</span>`;
-      if (underline) return `<span class="md-underline">${match}</span>`;
-      if (italicStar) return `<span class="md-italic">${match}</span>`;
-      if (italicUnderscore) return `<span class="md-italic">${match}</span>`;
-      return match;
-    },
-  );
+  // Walk the markdown matches manually so inline code/bold/italic/underline are
+  // emitted verbatim, while only the plain-text gaps between them receive
+  // operator substitution. This protects a markdown `*` (italic/bold) from
+  // becoming `×` while still converting a math `*` (e.g. `2 * 3`, `(a+b)*c`),
+  // which lives in a gap.
+  // Order matters: longer delimiters first to avoid partial matches.
+  const md = /(`[^`]+`)|(\*\*[^*]+\*\*)|(__[^_]+__)|(\*[^*]+\*)|(_[^_]+_)/g;
+  let out = "";
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = md.exec(escaped)) !== null) {
+    out += applyOperators(escaped.slice(last, m.index));
+    const [match, code, bold, underline, italicStar] = m;
+    if (code) out += `<span class="md-inline-code">${match}</span>`;
+    else if (bold) out += `<span class="md-bold">${match}</span>`;
+    else if (underline) out += `<span class="md-underline">${match}</span>`;
+    else if (italicStar) out += `<span class="md-italic">${match}</span>`;
+    else out += `<span class="md-italic">${match}</span>`;
+    last = m.index + match.length;
+  }
+  out += applyOperators(escaped.slice(last));
+  return out;
+}
+
+// Display-only operator glyphs. Runs on already-HTML-escaped text (so `<`/`>`
+// are `&lt;`/`&gt;`). The underlying textarea value is never changed, so the
+// Rust parser still receives raw ASCII. Two-char ligatures use a 2ch-wide span
+// so the glyph occupies exactly the same character grid as the source chars,
+// keeping the textarea caret and soft-wrapping aligned with the overlay.
+function applyOperators(s: string): string {
+  return s
+    .replace(/-&gt;/g, `<span class="op-lig">→</span>`)
+    .replace(/=&gt;/g, `<span class="op-lig">⇒</span>`)
+    .replace(/!=/g, `<span class="op-lig">≠</span>`)
+    .replace(/&lt;=/g, `<span class="op-lig">≤</span>`)
+    .replace(/&gt;=/g, `<span class="op-lig">≥</span>`)
+    // Division: only when surrounded by whitespace, so dates (06/28),
+    // rates/units (km/h), and paths stay literal. Single cell.
+    .replace(/(?<=\s)\/(?=\s)/g, `<span class="op-div">÷</span>`)
+    // Multiplication: any remaining `*` (markdown `*` is already consumed on
+    // inline-formatted lines before this runs). Single cell.
+    .replace(/\*/g, `<span class="op-mul">×</span>`);
 }
 
 // Sync scroll between editor, highlight, and results

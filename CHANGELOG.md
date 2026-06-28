@@ -6,6 +6,9 @@ All notable changes to Elo are documented here. The format is based on
 
 ## [Unreleased]
 
+- The editor now renders operators as typographic glyphs in the display layer
+  without changing the underlying text: `*` → `×`, spaced `/` → `÷`, and the
+  ligatures `->` → `→`, `=>` → `⇒`, `!=` → `≠`, `<=` → `≤`, `>=` → `≥`.
 - New app icon: a typed "E" mark resolving to a result row, rendered across
   all platforms (macOS `.icns`, Linux/Windows PNGs and `.ico`, and the iOS
   AppIcon set).

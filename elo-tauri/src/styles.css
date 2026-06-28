@@ -127,6 +127,7 @@ html, body {
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
+  font-variant-ligatures: none;
 }
 
 #editor {
@@ -149,6 +150,7 @@ html, body {
   user-select: text;
   z-index: 1;
   font-synthesis: none;
+  font-variant-ligatures: none;
 }
 
 #editor::selection {
@@ -189,6 +191,16 @@ html, body {
 .md-inline-code { background: var(--bg-surface); border-radius: 3px; }
 .md-code-fence { color: var(--text-muted); }
 .md-code-block { color: var(--text-muted); }
+
+/* Display-only operator glyphs in the overlay. Two-char ligatures occupy
+   exactly two monospace cells so the caret/wrapping stay aligned with the
+   underlying textarea text. */
+.op-lig {
+  display: inline-block;
+  width: 2ch;
+  text-align: center;
+}
+/* op-mul / op-div are single-cell 1:1 swaps; classes kept for theming. */
 
 /* Results gutter */
 #results {
